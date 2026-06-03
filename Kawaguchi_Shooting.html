@@ -1,0 +1,2102 @@
+<html lang="ja"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>川口航空戦 - KAWAGUCHI AIR BATTLE</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #010205;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        #game-container { width: 100vw; height: 100vh; position: relative; }
+        canvas {
+            display: block; position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; z-index: 1; pointer-events: auto;
+        }
+        #cockpit-hud {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; flex-direction: column;
+            justify-content: space-between; padding: 25px;
+            color: #00ff55; font-family: 'Courier New', Courier, monospace;
+            text-shadow: 0 0 3px rgba(0,255,85,0.6); font-weight: bold; z-index: 20;
+        }
+        .hud-top-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .hud-btn {
+            background: rgba(1,6,3,0.85); border: 1px solid rgba(0,255,85,0.6);
+            color: #00ff55; padding: 6px 14px; border-radius: 3px; cursor: pointer;
+            font-size: 11px; font-family: monospace; pointer-events: auto;
+            text-shadow: 0 0 3px rgba(0,255,85,0.6); transition: all 0.2s ease;
+        }
+        .hud-btn:hover { background: rgba(0,255,85,0.2); color: #fff; box-shadow: 0 0 8px rgba(0,255,85,0.5); }
+        
+        .hud-pitch-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            width: 380px; height: 380px; border: 1px solid rgba(0,255,85,0.1);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            transition: transform 0.04s ease-out;
+        }
+        #gun-reticle {
+            width: 50px; height: 50px; border: 1.5px solid #00ff55;
+            border-radius: 50%; position: relative; z-index: 3;
+        }
+        #gun-reticle::before {
+            content: ''; position: absolute; width: 4px; height: 4px;
+            background: #00ff55; border-radius: 50%; top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+        }
+        #gun-reticle::after {
+            content: ''; position: absolute; width: 15px; height: 1.5px;
+            background: #00ff55; top: 50%; left: -25px;
+        }
+        .reticle-right-wing {
+            position: absolute; width: 15px; height: 1.5px;
+            background: #00ff55; top: 50%; right: -25px;
+        }
+        .pitch-line { position: absolute; width: 80px; height: 1.5px; background: rgba(0,255,85,0.4); }
+        .pitch-line-pos { top: 32%; }
+        .pitch-line-neg { bottom: 32%; }
+        
+        .lock-box {
+            position: absolute; border: 1.5px solid #ff2222; width: 90px; height: 90px;
+            display: none; justify-content: center; align-items: center;
+            color: #ff2222; font-size: 10px; font-weight: bold;
+            animation: pulse 0.3s infinite alternate; text-shadow: 0 0 4px rgba(255,34,34,0.8);
+        }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.06); opacity: 1; } }
+
+        /* Waypoint Markers (Kawaguchi Station & High School) */
+        .waypoint-marker-custom {
+            position: absolute; color: #00ff55; font-size: 11px; font-weight: bold;
+            pointer-events: none; display: none; text-shadow: 0 0 4px rgba(0,255,85,0.95);
+            flex-direction: column; align-items: center; justify-content: center;
+            border: 1.5px dashed rgba(0,255,85,0.4); padding: 5px 8px; border-radius: 4px;
+            background: rgba(0,10,4,0.6); min-width: 115px; z-index: 4;
+        }
+        #waypoint-school {
+            color: #00e5ff;
+            text-shadow: 0 0 4px rgba(0,229,255,0.95);
+            border-color: rgba(0,229,255,0.4);
+        }
+        .waypoint-arrow { font-size: 15px; line-height: 1; margin-bottom: 3px; }
+
+        .enemy-marker {
+            position: absolute; border: none; width: 70px; height: 70px; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+            color: #ff2222; font-family: monospace; font-size: 10px; font-weight: bold;
+            text-shadow: 0 0 5px rgba(255,34,34,1.0); pointer-events: none;
+            background: transparent; z-index: 15;
+        }
+        .enemy-marker-arrow { font-size: 15px; line-height: 1; margin-bottom: 2px; }
+
+        .hud-side-panel { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; }
+        .hud-card {
+            background: rgba(1,6,3,0.85); border: 1px solid rgba(0,255,85,0.25);
+            border-radius: 2px; padding: 12px 18px; min-width: 230px; pointer-events: auto;
+        }
+        .engine-alert { font-size: 11px; margin-top: 5px; font-weight: bold; letter-spacing: 1px; }
+        .alert-active { color: #ff6600; text-shadow: 0 0 5px #ff6600; animation: blink 0.8s infinite alternate; }
+        @keyframes blink { 0% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        #damage-flash {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: rgba(255,0,0,0.4); pointer-events: none; display: none; z-index: 9;
+        }
+        #nuke-flash {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #ffffff; pointer-events: none; display: none; z-index: 15;
+        }
+        
+        #start-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(2,3,6,0.98), rgba(0,1,3,1.0));
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: white; z-index: 100; padding: 20px; pointer-events: auto;
+            transition: opacity 0.8s ease-in-out;
+        }
+        .time-select-container { margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 15px; pointer-events: auto; }
+        .time-btn {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(0,255,85,0.3);
+            color: #8899a6; padding: 8px 22px; border-radius: 4px; cursor: pointer;
+            font-size: 13px; transition: all 0.25s ease-out; font-weight: bold;
+            letter-spacing: 1px; pointer-events: auto;
+        }
+        .time-btn.active {
+            background: linear-gradient(135deg, #00ee44, #007722);
+            border-color: #00ff55; color: #ffffff; box-shadow: 0 0 10px rgba(0,255,85,0.4);
+        }
+        
+        #gameover-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(40,2,2,0.85); backdrop-filter: blur(5px); display: none;
+            flex-direction: column; justify-content: center; align-items: center;
+            color: white; z-index: 110; text-align: center; pointer-events: auto;
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .btn-launch, .btn-respawn {
+            background: linear-gradient(135deg, #00ee44, #007722); color: #ffffff;
+            border: none; padding: 16px 50px; font-size: 16px; font-weight: bold;
+            border-radius: 3px; cursor: pointer; box-shadow: 0 0 15px rgba(0,238,68,0.3);
+            margin-top: 30px; pointer-events: auto; transition: all 0.2s ease-out; letter-spacing: 3px;
+        }
+        .btn-launch:hover, .btn-respawn:hover { transform: scale(1.02); box-shadow: 0 0 25px rgba(0,238,68,0.6); }
+        .btn-respawn { background: linear-gradient(135deg, #ff4444, #aa1111); box-shadow: 0 0 15px rgba(255,68,68,0.3); }
+        .btn-respawn:hover { box-shadow: 0 0 25px rgba(255,68,68,0.6); }
+        
+        #radar-display {
+            width: 130px; height: 130px; border: 1px solid rgba(0,255,85,0.3);
+            border-radius: 50%; background: rgba(0,4,1,0.8); position: relative;
+            overflow: hidden; box-shadow: inset 0 0 10px rgba(0,255,85,0.15);
+        }
+        #radar-sweep {
+            position: absolute; width: 100%; height: 100%;
+            background: conic-gradient(from 0deg, rgba(0,255,85,0.1) 0deg, transparent 90deg, transparent 360deg);
+            transform-origin: center; animation: sweep 4.5s linear infinite;
+        }
+        @keyframes sweep { 100% { transform: rotate(360deg); } }
+        .radar-enemy-dot {
+            position: absolute; width: 5px; height: 5px;
+            background-color: #ff2222; border-radius: 50%; box-shadow: 0 0 5px #ff2222;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+<div id="game-container">
+    <div id="damage-flash"></div>
+    <div id="nuke-flash"></div>
+    <div id="enemy-markers-container" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:4;"><div class="enemy-marker"><div class="enemy-marker-arrow">▼</div><div>EMY</div><div class="enemy-dist-label">0.0 km</div></div><div class="enemy-marker"><div class="enemy-marker-arrow">▼</div><div>EMY</div><div class="enemy-dist-label">0.0 km</div></div><div class="enemy-marker"><div class="enemy-marker-arrow">▼</div><div>EMY</div><div class="enemy-dist-label">0.0 km</div></div><div class="enemy-marker"><div class="enemy-marker-arrow">▼</div><div>EMY</div><div class="enemy-dist-label">0.0 km</div></div><div class="enemy-marker"><div class="enemy-marker-arrow">▼</div><div>EMY</div><div class="enemy-dist-label">0.0 km</div></div><div class="enemy-marker"><div class="enemy-marker-arrow">▼</div><div>EMY</div><div class="enemy-dist-label">0.0 km</div></div></div>
+
+    <div id="start-overlay">
+        <h1 style="font-size:clamp(20px,3.5vw,32px);letter-spacing:5px;color:#00ff55;text-shadow:0 0 8px rgba(0,255,85,0.3);margin-bottom:5px;font-weight:300;text-align:center;">
+            川口航空戦
+        </h1>
+        <p style="font-size:clamp(11px,1.5vw,14px);letter-spacing:4px;color:#00cc44;text-shadow:0 0 6px rgba(0,255,85,0.2);margin-bottom:4px;text-align:center;font-weight:300;">
+            KAWAGUCHI AIR BATTLE — F-15K COCKPIT
+        </p>
+        <p style="color:#6a8296;font-size:11px;letter-spacing:2px;margin-bottom:15px;text-align:center;">
+            REALISTIC TOPO &amp; FLIGHT DYNAMICS (METRIC SYSTEM)
+        </p>
+        <div class="time-select-container">
+            <button id="time-day" class="time-btn">昼 (DAYTIME)</button>
+            <button id="time-night" class="time-btn active">夜 (NIGHTTIME)</button>
+        </div>
+        <div style="background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.05);padding:22px;border-radius:4px;max-width:540px;width:100%;line-height:1.7;font-size:13px;color:#a6b8c7;margin-top:20px;">
+            <h3 style="margin-top:0;color:#00ff55;border-bottom:1px solid rgba(0,255,85,0.2);padding-bottom:5px;font-weight:normal;letter-spacing:1px;">FLIGHT INTERFACE</h3>
+            <div style="display:grid;grid-template-columns:140px 1fr;gap:6px;">
+                <div><strong>機首操縦（旋回・ピッチ）:</strong></div><div><strong>WASD</strong> キー または <strong>↑↓←→</strong></div>
+                <div><strong>視点切り替え:</strong></div><div><strong>V</strong> キー または 右上の <strong>[V] VIEW</strong> ボタン</div>
+                <div><strong>アクセル（加速）:</strong></div><div><strong>Shift</strong> (スロットル最大 / アフターバーナー)</div>
+                <div><strong>ブレーキ（減速）:</strong></div><div><strong>Ctrl</strong> (エアブレーキ展開)</div>
+                <div><strong>ラダー（左右並進）:</strong></div><div><strong>Q</strong> (左) / <strong>E</strong> (右)</div>
+                <div><strong>20mm バルカン砲:</strong></div><div><strong>F</strong> キー または マウス左クリック</div>
+                <div><strong>空対空ミサイル:</strong></div><div><strong>Space</strong> キー (ロックオン時のみ射撃可能)</div>
+                <div><strong>戦術核ミサイル:</strong></div><div><strong>Enter</strong> キー (射程10km・爆発半径4km、着弾部周辺を吹き飛ばす)</div>
+            </div>
+            <p style="margin-top:12px;font-size:11px;color:#ff3333;text-align:center;font-weight:bold;">※警告: 核爆風（半径4km）に巻き込まれると自機も即時大破します！</p>
+        </div>
+        <button class="btn-launch" id="launch-btn">戦闘開始</button>
+    </div>
+
+    <div id="gameover-overlay">
+        <h1 style="font-size:clamp(28px,6vw,48px);letter-spacing:8px;color:#ff3333;text-shadow:0 0 15px rgba(255,51,51,0.6);margin-bottom:10px;font-weight:bold;">
+            MISSION FAILED
+        </h1>
+        <p id="gameover-reason" style="color:#ffaa99;font-size:15px;letter-spacing:1px;margin-bottom:5px;">
+            戦闘機が川口市街地に衝突、大破しました。
+        </p>
+        <p style="color:#8899a6;font-size:13px;margin-bottom:25px;">
+            最終撃墜スコア: <span id="final-score" style="color:#fff;font-weight:bold;">0</span>
+        </p>
+        <button class="btn-respawn" id="respawn-btn">ホームへ戻る (RETURN TO MENU)</button>
+    </div>
+
+    <div id="cockpit-hud">
+        <div class="hud-top-bar">
+            <div id="hud-location-text">KAWAGUCHI METROPOLITAN AIRSPACE [NIGHT]</div>
+            <div style="color:#ffaa00;font-size:12px;letter-spacing:1px;">MASTER ARM: ENGAGED</div>
+            <div style="display:flex;gap:15px;align-items:center;">
+                <button class="hud-btn" id="camera-toggle-btn">[V] VIEW: COCKPIT</button>
+                <div>SCORE: <span id="hud-score">0</span></div>
+            </div>
+        </div>
+        
+        <div class="hud-pitch-container" id="hud-pitch">
+            <div class="pitch-line pitch-line-pos"></div>
+            <div class="pitch-line pitch-line-neg"></div>
+            <div id="gun-reticle"><div class="reticle-right-wing"></div></div>
+            <div id="hud-lock" class="lock-box">TRGT LOCK<br><span id="lock-dist">0.0</span> km</div>
+        </div>
+
+        <!-- TWO WAYPOINTS FOR KAWAGUCHI STATION AND HIGH SCHOOL -->
+        <div id="waypoint-sta" class="waypoint-marker-custom">
+            <div class="waypoint-arrow">▼</div>
+            <div>川口駅 (STA)</div>
+            <div id="waypoint-sta-dist">0.0 km</div>
+        </div>
+        <div id="waypoint-school" class="waypoint-marker-custom">
+            <div class="waypoint-arrow">▼</div>
+            <div>川口市立高校</div>
+            <div id="waypoint-school-dist">0.0 km</div>
+        </div>
+
+        <div class="hud-side-panel">
+            <div class="hud-card">
+                <div style="font-size:9px;color:rgba(0,255,85,0.5);letter-spacing:1px;">FLIGHT TELEMETRY</div>
+                <div style="font-size:17px;margin:6px 0;">SPD: <span id="hud-speed" style="color:#fff;">0</span> km/h</div>
+                <div style="font-size:17px;margin:6px 0;">ALT: <span id="hud-alt" style="color:#fff;">0</span> m</div>
+                <div style="font-size:10px;margin-top:4px;">THR: <span id="hud-throttle">10</span>%</div>
+                <div id="hud-engine-state" class="engine-alert">ENGINE: MIL POWER</div>
+            </div>
+            <div id="radar-display"><div id="radar-sweep"></div></div>
+            <div class="hud-card" id="weapon-system">
+                <div style="font-size:9px;color:rgba(0,255,85,0.5);letter-spacing:1px;">WEAPON &amp; LIFE SYSTEMS</div>
+                <div style="margin:6px 0 8px 0;">
+                    <span style="font-size:10px;color:#00ff55;">LIFE SHIELD: </span>
+                    <span id="hud-life-val" style="color:#fff;">100%</span>
+                    <div style="width:100%;height:6px;background:rgba(0,255,85,0.15);border:1px solid #00ff55;margin-top:3px;position:relative;">
+                        <div id="hud-life-bar" style="width:100%;height:100%;background:#00ff55;transition:width 0.15s ease-out;"></div>
+                    </div>
+                </div>
+                <div style="font-size:11px;margin-top:4px;">GUN: <span style="color:#fff;">UNLIMITED</span></div>
+                <div style="color:#ff4444;font-weight:bold;margin-top:3px;font-size:11px;">AIM-120C: <span id="hud-missiles">4</span>/4</div>
+                <div style="margin:6px 0 3px 0;">
+                    <span id="hud-nuke-state" style="font-size:11px;font-weight:bold;color:#ffaa00;">NUKE: CHARGING</span>
+                    <div style="width:100%;height:6px;background:rgba(255,170,0,0.15);border:1px solid #ffaa00;margin-top:3px;position:relative;">
+                        <div id="hud-nuke-bar" style="width:0%;height:100%;background:#ffaa00;transition:width 0.1s linear;"></div>
+                    </div>
+                </div>
+                <div style="font-size:8px;color:#6a8296;margin-top:4px;">PRESS ENTER TO LAUNCH TACTICAL NUKE</div>
+            </div>
+        </div>
+    </div>
+<canvas width="957" height="1024" style="display: block; width: 638px; height: 683px;"></canvas></div>
+
+<script>
+// ===== CONFIGURATION AND GLOBALS =====
+const CONFIG = {
+    WORLD_SIZE: 80000,
+    CLOUD_COUNT: 120,
+    ENEMY_COUNT: 6,
+    MAX_MISSILES: 4,
+    RELOAD_TIME: 2200,
+    NUKE_COOLDOWN_MS: 60000,
+    ENEMY_PATROL_RADIUS: 10000 // 10km patrol limit
+};
+
+let scene, camera, renderer, clock;
+let isPlaying = false;
+let isGameOver = false;
+let selectedTime = "NIGHT";
+let cameraMode = "COCKPIT";
+
+let playerPos, playerRot;
+let speed = 83.33; // m/s
+let throttle = 10;
+let score = 0;
+let missileCount = CONFIG.MAX_MISSILES;
+let playerLife = 100;
+let lastDamageTime = 0;
+let lastNukeTime = -CONFIG.NUKE_COOLDOWN_MS;
+let lastVulcanTime = 0;
+let missileCooldown = 0;
+
+const keys = {
+    pitchUp: false, pitchDown: false,
+    rollLeft: false, rollRight: false,
+    yawLeft: false, yawRight: false,
+    throttleUp: false, throttleDown: false,
+    space: false, f: false, enter: false, v: false
+};
+
+let enemies = [];
+let bullets = [];
+let enemyBullets = [];
+let missiles = [];
+let nukeMissiles = [];
+let clouds = [];
+let buildings = [];
+let obstructionLights = [];
+
+let ambientLight, sunLight, skyMesh;
+let playerF15Mesh, f15EngineFlame, cockpitGroup;
+
+// 川口駅をゲーム中心 (0, 0, 0)
+let KAWAGUCHI_CENTER, RUNWAY_START, HIGH_SCHOOL_CENTER, WEST_KAWAGUCHI_CENTER, SKIP_CITY_CENTER, AUTO_RACE_CENTER;
+const RUNWAY_HEADING = 0;
+
+// ===== GEOGRAPHIC MAPPING (Google Maps based delta-meters relative to Kawaguchi Station) =====
+KAWAGUCHI_CENTER = new THREE.Vector3(0, 0, 0); // 川口駅: 35.8012° N, 139.7180° E
+WEST_KAWAGUCHI_CENTER = new THREE.Vector3(-1260, 0, -1610); // 西川口駅: 35.8157° N, 139.7041° E (1.6km北, 1.2km西)
+HIGH_SCHOOL_CENTER = new THREE.Vector3(770, 0, -2490); // 川口市立高校: 35.8236° N, 139.7265° E (2.5km北, 770m東)
+SKIP_CITY_CENTER = new THREE.Vector3(2400, 0, -1800); // SKIPシティ: 35.8174° N, 139.7451° E (1.8km北, 2.4km東)
+AUTO_RACE_CENTER = new THREE.Vector3(2500, 0, -2800); // 川口オートレース場: 35.8260° N, 139.7460° E (2.8km北, 2.5km東)
+const ARAKAWA_Z = 1200; // 荒川の中心 (駅の南側約1.2kmを東西に流れる)
+
+// ===== TERRAIN GENERATION =====
+function getTerrainHeight(x, z) {
+    // 平坦な滑走路周辺
+    if (x > 2500 && x < 5500 && z > 1500 && z < 7500) return -400;
+    
+    let height = 0;
+    // 西部の山々 (秩父・奥多摩方面の連峰を奥にシミュレート)
+    if (x < -9000) {
+        const mountainRatio = Math.min(1.0, (-x - 9000) / 12000);
+        let mNoise = Math.sin(x * 0.00007) * Math.cos(z * 0.00007) * 2000;
+        mNoise += Math.cos(x * 0.0002) * Math.sin(z * 0.0002) * 600;
+        height += mountainRatio * (700 + mNoise);
+    }
+    
+    // 荒川の河川敷窪地
+    const riverLine = z - ARAKAWA_Z;
+    if (Math.abs(riverLine) < 800) {
+        const riverDepth = (1.0 - Math.abs(riverLine) / 800) * -110;
+        height += riverDepth;
+    }
+    
+    if (height < -120) height = -120;
+    return height - 400;
+}
+
+// ===== TEXTURES & MATERIALS =====
+function createBuildingWindowTexture(isNight) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = isNight ? '#101420' : '#4a5368';
+    ctx.fillRect(0, 0, 64, 128);
+    
+    const cols = 4, rows = 8;
+    const winW = 10, winH = 12;
+    const gapX = 6, gapY = 4;
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const x = c * (winW + gapX) + gapX;
+            const y = r * (winH + gapY) + gapY;
+            if (isNight) {
+                const lit = Math.random() > 0.45;
+                ctx.fillStyle = lit ? `rgba(${220+Math.random()*35},${190+Math.random()*65},${90+Math.random()*55},0.95)` : '#070a12';
+            } else {
+                ctx.fillStyle = `rgba(165,195,225,${0.35 + Math.random() * 0.4})`;
+            }
+            ctx.fillRect(x, y, winW, winH);
+        }
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+}
+
+function addObstructionLight(x, y, z, size = 6) {
+    const geo = new THREE.SphereGeometry(size / 2, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y + 1.5, z);
+    scene.add(mesh);
+    obstructionLights.push(mesh);
+}
+
+function createLMBuilding(x, h, z, w, d, material, name) {
+    const bGeo = new THREE.BoxGeometry(w, h, d);
+    const bMesh = new THREE.Mesh(bGeo, material);
+    const baseTerrain = getTerrainHeight(x, z);
+    bMesh.position.set(x, baseTerrain + h / 2, z);
+    scene.add(bMesh);
+    buildings.push({
+        mesh: bMesh, position: bMesh.position.clone(),
+        halfWidth: w / 2 + 5, halfHeight: h / 2 + 5, halfDepth: d / 2 + 5, name
+    });
+    addObstructionLight(x, baseTerrain + h, z, 12);
+}
+
+// ===== WEB AUDIO ENGINE =====
+let audioCtx = null, engineNoiseNode = null, engineFilterNode = null, engineGainNode = null, engineOscNode = null;
+
+function initAudio() {
+    if (audioCtx) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (engineGainNode) {
+            engineGainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+            engineGainNode.gain.linearRampToValueAtTime(0.35, audioCtx.currentTime + 1.0);
+        }
+        return;
+    }
+    try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audioCtx = new AC();
+        const bufferSize = audioCtx.sampleRate * 2;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2.0 - 1.0;
+        
+        engineNoiseNode = audioCtx.createBufferSource();
+        engineNoiseNode.buffer = noiseBuffer;
+        engineNoiseNode.loop = true;
+        
+        engineFilterNode = audioCtx.createBiquadFilter();
+        engineFilterNode.type = 'bandpass';
+        engineFilterNode.frequency.value = 175;
+        engineFilterNode.Q.value = 1.0;
+        
+        engineOscNode = audioCtx.createOscillator();
+        engineOscNode.type = 'sawtooth';
+        engineOscNode.frequency.value = 80;
+        
+        const oscFilter = audioCtx.createBiquadFilter();
+        oscFilter.type = 'lowpass';
+        oscFilter.frequency.value = 240;
+        
+        const oscGain = audioCtx.createGain();
+        oscGain.gain.value = 0.05;
+        
+        engineGainNode = audioCtx.createGain();
+        engineGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        
+        engineNoiseNode.connect(engineFilterNode);
+        engineFilterNode.connect(engineGainNode);
+        engineOscNode.connect(oscFilter);
+        oscFilter.connect(oscGain);
+        oscGain.connect(engineGainNode);
+        engineGainNode.connect(audioCtx.destination);
+        
+        engineNoiseNode.start(0);
+        engineOscNode.start(0);
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        engineGainNode.gain.linearRampToValueAtTime(0.35, audioCtx.currentTime + 1.5);
+    } catch (e) { console.warn("Audio init failed:", e); }
+}
+
+function updateEngineSound() {
+    if (!audioCtx || !engineFilterNode || !engineGainNode || !engineOscNode) return;
+    const n = throttle / 100;
+    engineFilterNode.frequency.setTargetAtTime(110 + n * 390, audioCtx.currentTime, 0.1);
+    engineOscNode.frequency.setTargetAtTime(45 + n * 175, audioCtx.currentTime, 0.15);
+    let vol = 0.18 + n * 0.25;
+    if (keys.throttleDown) vol *= 0.55;
+    engineGainNode.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.2);
+}
+
+function playVulcanSound() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const bs = audioCtx.sampleRate * 0.08;
+    const buf = audioCtx.createBuffer(1, bs, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bs; i++) d[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource(); src.buffer = buf;
+    const osc = audioCtx.createOscillator(); osc.type = 'triangle';
+    osc.frequency.setValueAtTime(90, now);
+    osc.frequency.exponentialRampToValueAtTime(25, now + 0.08);
+    const flt = audioCtx.createBiquadFilter(); flt.type = 'bandpass'; flt.frequency.value = 270;
+    const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5, now); g.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+    src.connect(flt); osc.connect(g); flt.connect(g); g.connect(audioCtx.destination);
+    src.start(now); osc.start(now); src.stop(now + 0.08); osc.stop(now + 0.08);
+}
+
+function playMissileLaunchSound() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime, dur = 1.8;
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * dur, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < buf.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource(); src.buffer = buf;
+    const flt = audioCtx.createBiquadFilter(); flt.type = 'lowpass';
+    flt.frequency.setValueAtTime(230, now);
+    flt.frequency.exponentialRampToValueAtTime(1300, now + 0.45);
+    flt.frequency.exponentialRampToValueAtTime(160, now + dur);
+    const g = audioCtx.createGain(); g.gain.setValueAtTime(0.8, now); g.gain.exponentialRampToValueAtTime(0.01, now + dur);
+    src.connect(flt); flt.connect(g); g.connect(audioCtx.destination);
+    src.start(now); src.stop(now + dur);
+}
+
+function playExplosionSound(isHeavy = false) {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime, dur = isHeavy ? 3.8 : 1.5;
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * dur, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < buf.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource(); src.buffer = buf;
+    const flt = audioCtx.createBiquadFilter(); flt.type = 'lowpass';
+    flt.frequency.setValueAtTime(isHeavy ? 160 : 260, now);
+    flt.frequency.exponentialRampToValueAtTime(12, now + dur);
+    const osc = audioCtx.createOscillator(); osc.type = 'sine';
+    osc.frequency.setValueAtTime(isHeavy ? 55 : 90, now);
+    osc.frequency.linearRampToValueAtTime(8, now + 0.5);
+    const g = audioCtx.createGain(); g.gain.setValueAtTime(isHeavy ? 1.6 : 0.85, now); g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(flt); osc.connect(g); flt.connect(g); g.connect(audioCtx.destination);
+    src.start(now); osc.start(now); src.stop(now + dur); osc.stop(now + dur);
+}
+
+// ===== F-15J FIGHTER MODEL =====
+function createF15PlayerModel() {
+    playerF15Mesh = new THREE.Group();
+    const airForceMat = new THREE.MeshStandardMaterial({ color: 0x4d555e, metalness: 0.8, roughness: 0.28, flatShading: true });
+    
+    // Main Body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.0, 11.2), airForceMat);
+    playerF15Mesh.add(body);
+    
+    // Nose Cone
+    const noseGeo = new THREE.ConeGeometry(0.9, 3.2, 4);
+    noseGeo.rotateX(-Math.PI / 2); noseGeo.rotateY(Math.PI / 4);
+    const nose = new THREE.Mesh(noseGeo, airForceMat);
+    nose.position.set(0, -0.05, -6.5);
+    playerF15Mesh.add(nose);
+    
+    // Glass Canopy
+    const canopyMat = new THREE.MeshStandardMaterial({ color: 0x22ffaa, transparent: true, opacity: 0.4, metalness: 1.0, roughness: 0.02 });
+    const canopyGeo = new THREE.SphereGeometry(0.65, 16, 16); canopyGeo.scale(1.0, 0.75, 2.3);
+    const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+    canopy.position.set(0, 0.55, -3.5);
+    playerF15Mesh.add(canopy);
+    
+    // Classic dual-wing structure
+    const wingShape = new THREE.Shape();
+    wingShape.moveTo(0, 0); wingShape.lineTo(7.2, -3.2); wingShape.lineTo(7.2, -5.2); wingShape.lineTo(0, -3.8);
+    const wingGeo = new THREE.ExtrudeGeometry(wingShape, { depth: 0.1, bevelEnabled: false });
+    wingGeo.rotateX(-Math.PI / 2); wingGeo.center();
+    const leftWing = new THREE.Mesh(wingGeo, airForceMat);
+    leftWing.position.set(-4.1, 0.0, 0.8);
+    playerF15Mesh.add(leftWing);
+    
+    const rightWing = leftWing.clone(); rightWing.scale.x = -1; rightWing.position.x = 4.1;
+    playerF15Mesh.add(rightWing);
+    
+    // Engine nozzles (Dual burners)
+    const nozzleMat = new THREE.MeshStandardMaterial({ color: 0x262729, metalness: 0.9, roughness: 0.35 });
+    const nozzleGeo = new THREE.CylinderGeometry(0.55, 0.6, 1.3, 10); nozzleGeo.rotateX(Math.PI / 2);
+    
+    const leftNozzle = new THREE.Mesh(nozzleGeo, nozzleMat);
+    leftNozzle.position.set(-0.5, -0.05, 5.6);
+    playerF15Mesh.add(leftNozzle);
+    
+    const rightNozzle = leftNozzle.clone(); rightNozzle.position.x = 0.5;
+    playerF15Mesh.add(rightNozzle);
+    
+    // Engine flame (Afterburner)
+    const flameGeo = new THREE.ConeGeometry(0.38, 2.6, 8); flameGeo.rotateX(-Math.PI / 2); flameGeo.translate(0, 0, -1.35);
+    const flameMat = new THREE.MeshBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending });
+    f15EngineFlame = new THREE.Group();
+    
+    const leftFlame = new THREE.Mesh(flameGeo, flameMat); leftFlame.position.set(-0.5, -0.05, 6.2); f15EngineFlame.add(leftFlame);
+    const rightFlame = leftFlame.clone(); rightFlame.position.x = 0.5; f15EngineFlame.add(rightFlame);
+    playerF15Mesh.add(f15EngineFlame);
+    
+    scene.add(playerF15Mesh);
+    playerF15Mesh.visible = false;
+}
+
+// ===== COCKPIT FRAME =====
+function createCockpitFrame() {
+    cockpitGroup = new THREE.Group();
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x131518, roughness: 0.65, metalness: 0.75, flatShading: true });
+    
+    const leftPillarGeo = new THREE.BoxGeometry(0.12, 4, 0.12);
+    leftPillarGeo.rotateZ(0.24); leftPillarGeo.rotateY(0.12);
+    const leftPillar = new THREE.Mesh(leftPillarGeo, frameMat);
+    leftPillar.position.set(-1.15, 0, -1.45);
+    cockpitGroup.add(leftPillar);
+    
+    const rightPillar = leftPillar.clone(); rightPillar.scale.x = -1; rightPillar.position.x = 1.15;
+    cockpitGroup.add(rightPillar);
+    
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(1.35, 0.05, 8, 24, Math.PI), frameMat);
+    arch.position.set(0, 0.45, -1.52);
+    cockpitGroup.add(arch);
+    
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x88ffdd, transparent: true, opacity: 0.04, roughness: 0.04, metalness: 0.96 });
+    const glassGeo = new THREE.SphereGeometry(1.5, 16, 16); glassGeo.scale(1, 1, 1.75);
+    const glass = new THREE.Mesh(glassGeo, glassMat);
+    glass.position.set(0, 0, -0.08);
+    cockpitGroup.add(glass);
+    
+    camera.add(cockpitGroup);
+    cockpitGroup.position.set(0, -0.28, -0.55);
+}
+
+// ===== SKYDOME & METROPOLITAN ENVIRONMENT =====
+function createSkyDome() {
+    if (skyMesh) scene.remove(skyMesh);
+    const skyGeo = new THREE.SphereGeometry(95000, 32, 15);
+    const pos = skyGeo.attributes.position;
+    const colors = [];
+    const color = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+        const y = pos.getY(i);
+        const ratio = Math.max(0, Math.min(1.0, (y + 15000) / 110000));
+        if (selectedTime === "DAY") {
+            if (ratio < 0.2) color.setRGB(0.82, 0.9, 0.98);
+            else if (ratio < 0.6) { const t = (ratio - 0.2) / 0.4; color.setRGB(0.82 - t*0.5, 0.9 - t*0.4, 0.98 - t*0.06); }
+            else { const t = Math.min(1.0, (ratio - 0.6) / 0.4); color.setRGB(0.32 - t*0.27, 0.5 - t*0.26, 0.92 - t*0.3); }
+        } else {
+            if (ratio < 0.25) color.setHSL(0.61, 0.5, 0.05 + ratio * 0.15);
+            else { const t = Math.min(1.0, (ratio - 0.25) / 0.75); color.setRGB(0.003*(1-t), 0.012*(1-t), 0.038*(1-t)); }
+        }
+        colors.push(color.r, color.g, color.b);
+    }
+    skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    skyMesh = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false }));
+    scene.add(skyMesh);
+}
+
+function createRealisticTerrain() {
+    const terrainGeo = new THREE.PlaneGeometry(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE, 128, 128);
+    const pos = terrainGeo.attributes.position;
+    const colors = [];
+    for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), y = pos.getY(i);
+        const height = getTerrainHeight(x, y);
+        pos.setZ(i, height + 400);
+        const color = new THREE.Color();
+        
+        // Coloring based on heights/river/city location
+        if (height < -40) {
+            // Arakawa River base color (riverbed green-blue)
+            color.setRGB(0.05, 0.18, 0.3);
+        } else if (x < -9000) {
+            // Mountain ranges (Saitama mountains)
+            color.setRGB(0.12, 0.32, 0.15);
+        } else if (Math.abs(x) < 5000 && Math.abs(y) < 6000) {
+            // Urban concrete plain (Kawaguchi metro area)
+            color.setRGB(0.14, 0.15, 0.17);
+        } else {
+            // Surrounding fields
+            color.setRGB(0.16, 0.2, 0.14);
+        }
+        colors.push(color.r, color.g, color.b);
+    }
+    terrainGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    terrainGeo.computeVertexNormals();
+    const terrainMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0.1 });
+    const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+    terrain.rotation.x = -Math.PI / 2;
+    terrain.position.y = -400;
+    scene.add(terrain);
+}
+
+function createVolumetricClouds() {
+    const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(255,235,220,0.45)'); grad.addColorStop(0.6, 'rgba(190,180,185,0.12)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, 128, 128);
+    const cloudTex = new THREE.CanvasTexture(canvas);
+    const cloudMat = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, opacity: 0.42, color: selectedTime === "DAY" ? 0xffffff : 0xffeae0, fog: true });
+    for (let i = 0; i < CONFIG.CLOUD_COUNT; i++) {
+        const sprite = new THREE.Sprite(cloudMat);
+        const size = 1500 + Math.random() * 2000;
+        sprite.scale.set(size, size * 0.42, 1);
+        sprite.position.set((Math.random() - 0.5) * CONFIG.WORLD_SIZE * 0.85, 1200 + Math.random() * 1500, (Math.random() - 0.5) * CONFIG.WORLD_SIZE * 0.85);
+        scene.add(sprite);
+        clouds.push(sprite);
+    }
+}
+
+// ===== REAL KAWAGUCHI METRO MODELING =====
+function createKawaguchiCity() {
+    // 荒川 (Procedural blue plane at Z=1200, widened to 500m)
+    const waterMat = new THREE.MeshStandardMaterial({ color: 0x0c2536, roughness: 0.1, metalness: 0.95, transparent: true, opacity: 0.85 });
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(CONFIG.WORLD_SIZE, 500), waterMat);
+    water.rotation.x = -Math.PI / 2;
+    water.position.set(0, -412, ARAKAWA_Z);
+    scene.add(water);
+
+    // River banks (土手) - Grass green bands along the river sides
+    const bankMat = new THREE.MeshStandardMaterial({ color: 0x224f28, roughness: 0.95 });
+    const bankNorth = new THREE.Mesh(new THREE.PlaneGeometry(CONFIG.WORLD_SIZE, 60), bankMat);
+    bankNorth.rotation.x = -Math.PI / 2;
+    bankNorth.position.set(0, -408, ARAKAWA_Z - 280);
+    scene.add(bankNorth);
+    
+    const bankSouth = bankNorth.clone();
+    bankSouth.position.z = ARAKAWA_Z + 280;
+    scene.add(bankSouth);
+
+    // Military Base Runway (Flat airport towards Saitama fields east)
+    const runwayGeo = new THREE.PlaneGeometry(140, 4500);
+    const runway = new THREE.Mesh(runwayGeo, new THREE.MeshStandardMaterial({ color: 0x16181b, roughness: 0.88, metalness: 0.12 }));
+    runway.rotation.x = -Math.PI / 2;
+    runway.position.set(RUNWAY_START.x, RUNWAY_START.y - 1.5, RUNWAY_START.z - 2250);
+    scene.add(runway);
+
+    const winTexNight = createBuildingWindowTexture(true);
+    const winTexDay = createBuildingWindowTexture(false);
+    const buildingMatNight = new THREE.MeshStandardMaterial({
+        color: 0x3a3f4a, map: winTexNight, emissiveMap: winTexNight,
+        emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.75, roughness: 0.35, metalness: 0.75
+    });
+    const buildingMatDay = new THREE.MeshStandardMaterial({ color: 0x444c5a, map: winTexDay, roughness: 0.55, metalness: 0.65 });
+    const activeMat = selectedTime === "NIGHT" ? buildingMatNight : buildingMatDay;
+
+    // --- LANDMARK 1: Saitama's Absolute Tower "Elza Tower 55" (エルザタワー55) ---
+    // Height drastically increased to 320m (making it overwhelmingly taller than any other buildings)
+    createElzaTower(1060, -350, activeMat);
+
+    // --- LANDMARK 2: Kawaguchi Station Area & Cupola / Casty / Lilia ---
+    createKawaguchiStationComplex(activeMat);
+
+    // --- LANDMARK 3: Kawaguchi Municipal High School Campus (川口市立高校) ---
+    // Height adjusted to be slightly shorter than surrounding tall blocks (approx 110-120m)
+    createKawaguchiHighSchoolComplex(activeMat);
+
+    // --- LANDMARK 4: Nishi-Kawaguchi Station Complex ---
+    createNishiKawaguchiStationComplex(activeMat);
+
+    // --- LANDMARK 5: Kawaguchi Auto Race Track (川口オートレース場) ---
+    createKawaguchiAutoRace(activeMat);
+
+    // --- LANDMARK 6: SKIP City (SKIPシティ) ---
+    createSkipCity(activeMat);
+
+    // Dense generic residential / office blocks in Kawaguchi
+    // Height variance set between 80m and 240m (so Elza Tower @ 320m is towering, and High School @ 120m is just slightly below average height of taller structures)
+    for (let i = 0; i < 150; i++) {
+        const bx = (Math.random() - 0.5) * 6500;
+        const bz = -4500 + Math.random() * 6500;
+        
+        // Skip landmark boundaries to avoid overlap
+        if (bx > 800 && bx < 1300 && bz > -550 && bz < -150) continue; // Elza Tower
+        if (Math.abs(bx) < 350 && Math.abs(bz) < 350) continue; // Kawaguchi station
+        if (bx > 500 && bx < 1000 && bz > -2700 && bz < -2300) continue; // High School
+        if (bx > -1500 && bx < -1000 && bz > -1800 && bz < -1400) continue; // Nishi-Kawaguchi
+        if (bx > 2000 && bx < 3000 && bz > -3100 && bz < -2500) continue; // Auto Race
+        if (bx > 2000 && bx < 2800 && bz > -2100 && bz < -1500) continue; // SKIP City
+
+        const w = 80 + Math.random() * 110;
+        const h = 80 + Math.random() * 160; // Max height around 240m
+        const d = 80 + Math.random() * 110;
+        const baseHeight = getTerrainHeight(bx, bz);
+        const bGeo = new THREE.BoxGeometry(w, h, d);
+        const bMesh = new THREE.Mesh(bGeo, activeMat);
+        bMesh.position.set(bx, baseHeight + h / 2, bz);
+        scene.add(bMesh);
+        buildings.push({ mesh: bMesh, position: bMesh.position.clone(), halfWidth: w/2+4, halfHeight: h/2+4, halfDepth: d/2+4, name: "川口住宅街ビル" });
+        addObstructionLight(bx, baseHeight + h, bz);
+    }
+}
+
+// ------ Landmark Builder: Elza Tower 55 (エルザタワー55) ------
+function createElzaTower(x, z, material) {
+    const baseY = getTerrainHeight(x, z);
+    const height = 320; // OVERWHELMINGLY TALLER THAN ANY OTHER BUILDING (東京タワー級)
+    const width = 120;
+    const group = new THREE.Group();
+    
+    // Distinctive octagonal tall structure
+    const towerGeo = new THREE.CylinderGeometry(width / 2.8, width / 2, height, 8);
+    const tower = new THREE.Mesh(towerGeo, material);
+    tower.position.set(0, height / 2, 0);
+    group.add(tower);
+
+    // Multi-tier balcony accents
+    for (let i = 1; i <= 8; i++) {
+        const ringGeo = new THREE.CylinderGeometry(width / 2.3, width / 2.3, 5, 8);
+        const ring = new THREE.Mesh(ringGeo, new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.4 }));
+        ring.position.set(0, (height / 8) * i, 0);
+        group.add(ring);
+    }
+
+    // Ground podium
+    const podiumGeo = new THREE.BoxGeometry(width * 1.6, 25, width * 1.6);
+    const podium = new THREE.Mesh(podiumGeo, new THREE.MeshStandardMaterial({ color: 0x4e535c, roughness: 0.7 }));
+    podium.position.set(0, 12.5, 0);
+    group.add(podium);
+
+    group.position.set(x, baseY, z);
+    scene.add(group);
+
+    addObstructionLight(x, baseY + height, z, 16);
+    addObstructionLight(x, baseY + height / 2, z, 10);
+
+    buildings.push({
+        mesh: tower, position: new THREE.Vector3(x, baseY + height / 2, z),
+        halfWidth: width / 1.4, halfHeight: height / 2, halfDepth: width / 1.4, name: "エルザタワー55"
+    });
+}
+
+// ------ Landmark Builder: Kawaguchi Station Complex (川口駅周辺) ------
+function createKawaguchiStationComplex(material) {
+    const SX = KAWAGUCHI_CENTER.x, SZ = KAWAGUCHI_CENTER.z;
+    const baseY = getTerrainHeight(SX, SZ);
+    const group = new THREE.Group();
+
+    const concreteMat = new THREE.MeshStandardMaterial({ color: 0x82868e, metalness: 0.2, roughness: 0.8 });
+    const glassMat    = new THREE.MeshStandardMaterial({ color: 0x77aabb, metalness: 0.9, roughness: 0.08, transparent: true, opacity: 0.7 });
+
+    // 1. Station Building
+    const stationGeo = new THREE.BoxGeometry(160, 32, 280);
+    const station = new THREE.Mesh(stationGeo, concreteMat);
+    station.position.set(0, baseY + 16, 0);
+    group.add(station);
+    buildings.push({ mesh: station, position: new THREE.Vector3(SX, baseY + 16, SZ), halfWidth: 85, halfHeight: 20, halfDepth: 145, name: "川口駅舎" });
+
+    // 2. Kawaguchi Lilia (川口総合文化センター・リリア) - West Exit
+    const liliaGeo = new THREE.BoxGeometry(110, 80, 110);
+    const lilia = new THREE.Mesh(liliaGeo, material);
+    lilia.position.set(-160, baseY + 40, 40);
+    group.add(lilia);
+    buildings.push({ mesh: lilia, position: new THREE.Vector3(SX - 160, baseY + 40, SZ + 40), halfWidth: 60, halfHeight: 45, halfDepth: 60, name: "川口リリア" });
+
+    // 3. Kawaguchi Casty (かわぐちキャスティ) - East Exit (Curved profile)
+    const castyGeo = new THREE.CylinderGeometry(55, 60, 45, 10);
+    const casty = new THREE.Mesh(castyGeo, glassMat);
+    casty.position.set(150, baseY + 22.5, -50);
+    group.add(casty);
+    buildings.push({ mesh: casty, position: new THREE.Vector3(SX + 150, baseY + 22.5, SZ - 50), halfWidth: 65, halfHeight: 28, halfDepth: 65, name: "かわぐちキャスティ" });
+
+    // 4. Cupola (キュポ・ラ) - East Exit Complex
+    const cupolaGeo = new THREE.BoxGeometry(120, 60, 140);
+    const cupola = new THREE.Mesh(cupolaGeo, material);
+    cupola.position.set(150, baseY + 30, 90);
+    group.add(cupola);
+    buildings.push({ mesh: cupola, position: new THREE.Vector3(SX + 150, baseY + 30, SZ + 90), halfWidth: 65, halfHeight: 35, halfDepth: 75, name: "キュポ・ラ" });
+
+    group.position.set(SX, 0, SZ);
+    scene.add(group);
+
+    addObstructionLight(SX - 160, baseY + 80, SZ + 40, 10);
+    addObstructionLight(SX + 150, baseY + 60, SZ + 90, 8);
+}
+
+// ------ Landmark Builder: Kawaguchi Municipal High School (川口市立高校) ------
+function createKawaguchiHighSchoolComplex(material) {
+    const HX = HIGH_SCHOOL_CENTER.x, HZ = HIGH_SCHOOL_CENTER.z;
+    const baseY = getTerrainHeight(HX, HZ);
+    const group = new THREE.Group();
+
+    const schoolMat = new THREE.MeshStandardMaterial({ color: 0x9fa3ab, roughness: 0.65, metalness: 0.3 });
+    const fieldMat  = new THREE.MeshStandardMaterial({ color: 0x487042, roughness: 0.95 });
+
+    // Main parallel school wings (Slightly shorter than surrounding tall office blocks: 110m - 120m)
+    const wing1Geo = new THREE.BoxGeometry(180, 120, 48); // Tall modern campus wing
+    const wing1 = new THREE.Mesh(wing1Geo, schoolMat);
+    wing1.position.set(0, baseY + 60, -60);
+    group.add(wing1);
+    buildings.push({ mesh: wing1, position: new THREE.Vector3(HX, baseY + 60, HZ - 60), halfWidth: 95, halfHeight: 65, halfDepth: 28, name: "川口市立高校 本館" });
+
+    const wing2Geo = new THREE.BoxGeometry(160, 110, 48);
+    const wing2 = new THREE.Mesh(wing2Geo, schoolMat);
+    wing2.position.set(0, baseY + 55, 40);
+    group.add(wing2);
+    buildings.push({ mesh: wing2, position: new THREE.Vector3(HX, baseY + 55, HZ + 40), halfWidth: 85, halfHeight: 60, halfDepth: 28, name: "川口市立高校 南館" });
+
+    // Gymnasium / Arena Block
+    const gymGeo = new THREE.BoxGeometry(100, 45, 90);
+    const gym = new THREE.Mesh(gymGeo, new THREE.MeshStandardMaterial({ color: 0xd0ccd6 }));
+    gym.position.set(-160, baseY + 22.5, 0);
+    group.add(gym);
+    buildings.push({ mesh: gym, position: new THREE.Vector3(HX - 160, baseY + 22.5, HZ), halfWidth: 55, halfHeight: 25, halfDepth: 50, name: "川口市立高校 アリーナ" });
+
+    // Green sports track field
+    const trackGeo = new THREE.PlaneGeometry(240, 160);
+    const track = new THREE.Mesh(trackGeo, fieldMat);
+    track.rotation.x = -Math.PI / 2;
+    track.position.set(220, baseY + 1.2, 0);
+    group.add(track);
+
+    group.position.set(HX, 0, HZ);
+    scene.add(group);
+
+    addObstructionLight(HX, baseY + 120, HZ - 60, 8);
+}
+
+// ------ Landmark Builder: Nishi-Kawaguchi Station (西川口駅周辺) ------
+function createNishiKawaguchiStationComplex(material) {
+    const WX = WEST_KAWAGUCHI_CENTER.x, WZ = WEST_KAWAGUCHI_CENTER.z;
+    const baseY = getTerrainHeight(WX, WZ);
+    const group = new THREE.Group();
+
+    const stationMat = new THREE.MeshStandardMaterial({ color: 0x5a6068, roughness: 0.75, metalness: 0.2 });
+
+    // Station Building (East-West profile)
+    const buildingGeo = new THREE.BoxGeometry(220, 24, 110);
+    const building = new THREE.Mesh(buildingGeo, stationMat);
+    building.position.set(0, baseY + 12, 0);
+    group.add(building);
+    buildings.push({ mesh: building, position: new THREE.Vector3(WX, baseY + 12, WZ), halfWidth: 115, halfHeight: 16, halfDepth: 60, name: "西川口駅舎" });
+
+    // Surrounding commercial dense blocks
+    for (let i = 0; i < 15; i++) {
+        const theta = (i / 15) * Math.PI * 2;
+        const dist = 160 + Math.random() * 120;
+        const bx = Math.cos(theta) * dist;
+        const bz = Math.sin(theta) * dist;
+        const h = 80 + Math.random() * 140;
+        const w = 45 + Math.random() * 45, d = 45 + Math.random() * 45;
+
+        const blockGeo = new THREE.BoxGeometry(w, h, d);
+        const block = new THREE.Mesh(blockGeo, material);
+        block.position.set(bx, baseY + h / 2, bz);
+        group.add(block);
+        buildings.push({ mesh: block, position: new THREE.Vector3(WX + bx, baseY + h/2, WZ + bz), halfWidth: w/2+3, halfHeight: h/2+3, halfDepth: d/2+3, name: "西川口歓楽街ビル" });
+        addObstructionLight(WX + bx, baseY + h, WZ + bz, 6);
+    }
+
+    group.position.set(WX, 0, WZ);
+    scene.add(group);
+}
+
+// ------ Landmark Builder: Kawaguchi Auto Race Track (川口オートレース場) ------
+function createKawaguchiAutoRace(material) {
+    const AX = AUTO_RACE_CENTER.x, AZ = AUTO_RACE_CENTER.z;
+    const baseY = getTerrainHeight(AX, AZ);
+    const group = new THREE.Group();
+
+    // Oval asphalt track
+    const trackOuterW = 320, trackOuterH = 200;
+    const trackOuterGeo = new THREE.CylinderGeometry(trackOuterW / 2, trackOuterW / 2, 2, 32);
+    const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x222225, roughness: 0.85 });
+    const trackOuter = new THREE.Mesh(trackOuterGeo, asphaltMat);
+    trackOuter.position.set(0, baseY + 1, 0);
+    group.add(trackOuter);
+
+    // Inner green turf
+    const trackInnerW = 220, trackInnerH = 120;
+    const trackInnerGeo = new THREE.CylinderGeometry(trackInnerW / 2, trackInnerW / 2, 2.5, 32);
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0x3d6636, roughness: 0.95 });
+    const trackInner = new THREE.Mesh(trackInnerGeo, grassMat);
+    trackInner.position.set(0, baseY + 1.1, 0);
+    group.add(trackInner);
+
+    // Large spectator stands (Main Stand)
+    const standW = 280, standH = 50, standD = 60;
+    const standGeo = new THREE.BoxGeometry(standW, standH, standD);
+    const standMat = new THREE.MeshStandardMaterial({ color: 0x9095a0, roughness: 0.6 });
+    const stand = new THREE.Mesh(standGeo, standMat);
+    stand.position.set(0, baseY + standH / 2, trackOuterH / 2 + 35);
+    group.add(stand);
+    buildings.push({
+        mesh: stand, position: new THREE.Vector3(AX, baseY + standH / 2, AZ + trackOuterH / 2 + 35),
+        halfWidth: standW / 2, halfHeight: standH / 2, halfDepth: standD / 2, name: "川口オートレース メインスタンド"
+    });
+
+    // Tall illumination floodlight poles x 4
+    const poleH = 90;
+    const poleGeo = new THREE.CylinderGeometry(2, 4, poleH, 8);
+    const metalMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8 });
+    const lightPositions = [
+        [-trackOuterW/2 - 20, trackOuterH/2],
+        [trackOuterW/2 + 20, trackOuterH/2],
+        [-trackOuterW/2 - 20, -trackOuterH/2],
+        [trackOuterW/2 + 20, -trackOuterH/2]
+    ];
+    lightPositions.forEach(pos => {
+        const pole = new THREE.Mesh(poleGeo, metalMat);
+        pole.position.set(pos[0], baseY + poleH / 2, pos[1]);
+        group.add(pole);
+        buildings.push({
+            mesh: pole, position: new THREE.Vector3(AX + pos[0], baseY + poleH / 2, AZ + pos[1]),
+            halfWidth: 6, halfHeight: poleH / 2, halfDepth: 6, name: "オートレース照明灯"
+        });
+        addObstructionLight(AX + pos[0], baseY + poleH, AZ + pos[1], 10);
+    });
+
+    group.position.set(AX, 0, AZ);
+    scene.add(group);
+}
+
+// ------ Landmark Builder: SKIP City (SKIPシティ) ------
+function createSkipCity(material) {
+    const KX = SKIP_CITY_CENTER.x, KZ = SKIP_CITY_CENTER.z;
+    const baseY = getTerrainHeight(KX, KZ);
+    const group = new THREE.Group();
+
+    // Block-designed colorful structural buildings (SKIP City block layout)
+    const grayMat = new THREE.MeshStandardMaterial({ color: 0xa8b0bc, roughness: 0.5 });
+    const blueGlassMat = new THREE.MeshStandardMaterial({ color: 0x5a8fa8, metalness: 0.9, roughness: 0.1 });
+    const orangeAccentMat = new THREE.MeshStandardMaterial({ color: 0xe07b30, roughness: 0.4 });
+
+    // Building A (Digital Kids Museum / NHK Archive)
+    const b1W = 160, b1H = 65, b1D = 120;
+    const b1Geo = new THREE.BoxGeometry(b1W, b1H, b1D);
+    const b1 = new THREE.Mesh(b1Geo, grayMat);
+    b1.position.set(-60, baseY + b1H / 2, -40);
+    group.add(b1);
+    buildings.push({
+        mesh: b1, position: new THREE.Vector3(KX - 60, baseY + b1H / 2, KZ - 40),
+        halfWidth: b1W / 2 + 2, halfHeight: b1H / 2 + 2, halfDepth: b1D / 2 + 2, name: "SKIPシティ映像ミュージアム"
+    });
+
+    // Building B (Saitama Industrial Technology Center - Distinct tall cubic glass tower)
+    const b2W = 90, b2H = 115, b2D = 90;
+    const b2Geo = new THREE.BoxGeometry(b2W, b2H, b2D);
+    const b2 = new THREE.Mesh(b2Geo, blueGlassMat);
+    b2.position.set(80, baseY + b2H / 2, 30);
+    group.add(b2);
+    buildings.push({
+        mesh: b2, position: new THREE.Vector3(KX + 80, baseY + b2H / 2, KZ + 30),
+        halfWidth: b2W / 2 + 2, halfHeight: b2H / 2 + 2, halfDepth: b2D / 2 + 2, name: "SKIPシティ彩の国ビジュアルプラザ"
+    });
+
+    // Building C (Plaza Annex low connecting corridor)
+    const b3W = 200, b3H = 30, b3D = 40;
+    const b3Geo = new THREE.BoxGeometry(b3W, b3H, b3D);
+    const b3 = new THREE.Mesh(b3Geo, orangeAccentMat);
+    b3.position.set(-20, baseY + b3H / 2, 70);
+    group.add(b3);
+    buildings.push({
+        mesh: b3, position: new THREE.Vector3(KX - 20, baseY + b3H / 2, KZ + 70),
+        halfWidth: b3W / 2 + 1, halfHeight: b3H / 2 + 1, halfDepth: b3D / 2 + 1, name: "SKIPシティプラザアネックス"
+    });
+
+    group.position.set(KX, 0, KZ);
+    scene.add(group);
+
+    addObstructionLight(KX - 60, baseY + b1H, KZ - 40, 8);
+    addObstructionLight(KX + 80, baseY + b2H, KZ + 30, 10);
+}
+
+// ===== ENEMY SPAWN MECHANISM (Kawaguchi station 10km limit) =====
+function spawnEnemy() {
+    const enemy = new THREE.Group();
+    const enemyMat = new THREE.MeshStandardMaterial({ color: 0x25272a, metalness: 0.85, roughness: 0.4, flatShading: true });
+    
+    const noseGeo = new THREE.ConeGeometry(1.4, 6, 4); noseGeo.rotateX(-Math.PI / 2);
+    enemy.add(new THREE.Mesh(noseGeo, enemyMat));
+    
+    const wingShape = new THREE.Shape();
+    wingShape.moveTo(0,0); wingShape.lineTo(6,1); wingShape.lineTo(4.5,4); wingShape.lineTo(0,2.5);
+    const wingGeo = new THREE.ExtrudeGeometry(wingShape, { depth: 0.1, bevelEnabled: false });
+    wingGeo.rotateX(-Math.PI / 2); wingGeo.center();
+    
+    const leftWing = new THREE.Mesh(wingGeo, enemyMat); leftWing.position.set(-3.2, -0.1, 1);
+    enemy.add(leftWing);
+    
+    const rightWing = leftWing.clone(); rightWing.position.x = 3.2; rightWing.scale.x = -1;
+    enemy.add(rightWing);
+    
+    enemy.scale.set(1.8, 1.8, 1.8);
+
+    // Randomize position within 10km around Kawaguchi Center
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 2000 + Math.random() * 8000; // 2km to 10km limit
+    enemy.position.set(
+        KAWAGUCHI_CENTER.x + Math.cos(angle) * dist,
+        600 + Math.random() * 900,
+        KAWAGUCHI_CENTER.z + Math.sin(angle) * dist
+    );
+
+    enemy.userData = {
+        speed: 14 + Math.random() * 7,
+        hp: 100,
+        turnTimer: 0,
+        shootCooldown: 1.0 + Math.random() * 2.0,
+        evadeX: 0, evadeY: 0,
+        markerDiv: null
+    };
+
+    const markerContainer = document.getElementById('enemy-markers-container');
+    if (markerContainer) {
+        const marker = document.createElement('div');
+        marker.className = 'enemy-marker';
+        marker.innerHTML = `<div class="enemy-marker-arrow">▼</div><div>EMY</div><div class="enemy-dist-label">0.0 km</div>`;
+        markerContainer.appendChild(marker);
+        enemy.userData.markerDiv = marker;
+    }
+    
+    scene.add(enemy);
+    enemies.push(enemy);
+}
+
+// ===== ENVIRONMENT TIMESHIFT =====
+function applyTimeOfEnvironment() {
+    if (!scene || !ambientLight || !sunLight) return;
+    if (selectedTime === "DAY") {
+        scene.fog.color.setHex(0xaecdf5); ambientLight.color.setHex(0xd0e2f5); ambientLight.intensity = 1.4;
+        sunLight.color.setHex(0xffffff); sunLight.intensity = 3.8; sunLight.position.set(15000, 40000, 15000);
+        document.getElementById('hud-location-text').innerText = "KAWAGUCHI METROPOLITAN AIRSPACE [DAY]";
+    } else {
+        scene.fog.color.setHex(0x02040b); ambientLight.color.setHex(0x11172a); ambientLight.intensity = 0.35;
+        sunLight.color.setHex(0xbcd3ff); sunLight.intensity = 0.9; sunLight.position.set(-30000, 20000, -20000);
+        document.getElementById('hud-location-text').innerText = "KAWAGUCHI METROPOLITAN AIRSPACE [NIGHT]";
+    }
+    createSkyDome();
+}
+
+// ===== BULLET (VULCAN GUN) =====
+let lastVulcanShotTime = 0;
+function shootVulcan() {
+    if (!isPlaying || isGameOver) return;
+    const now = Date.now();
+    if (now - lastVulcanShotTime < 80) return; // limit gun rate
+    lastVulcanShotTime = now;
+    playVulcanSound();
+
+    const bGeo = new THREE.SphereGeometry(0.4, 4, 4);
+    const bMat = new THREE.MeshBasicMaterial({ color: 0xffee88 });
+    const bullet = new THREE.Mesh(bGeo, bMat);
+
+    const dir = new THREE.Vector3(0, 0, -1).applyEuler(playerRot).normalize();
+    bullet.position.copy(playerPos).addScaledVector(dir, 8);
+    bullet.userData = { velocity: dir.multiplyScalar(650), life: 1.5 };
+    
+    scene.add(bullet);
+    bullets.push(bullet);
+}
+
+// ===== MISSILES (AIM-120C & NUCLEAR LAUNCH) =====
+function createMissileModel(isNuke = false) {
+    const group = new THREE.Group();
+    const scale = isNuke ? 2.5 : 1.0;
+
+    const bodyMat = new THREE.MeshStandardMaterial({ color: isNuke ? 0x221c16 : 0xd8d8d8, metalness: 0.85, roughness: 0.2 });
+    const noseMat = new THREE.MeshStandardMaterial({ color: isNuke ? 0xccaa00 : 0x222222, metalness: 0.6, roughness: 0.3 });
+    const finMat  = new THREE.MeshStandardMaterial({ color: isNuke ? 0x5e2b02 : 0x7c7c7c, metalness: 0.9, roughness: 0.15, flatShading: true });
+    const flameMat = new THREE.MeshBasicMaterial({ color: isNuke ? 0xff2200 : 0x88ccff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending });
+    const glowMat  = new THREE.MeshBasicMaterial({ color: isNuke ? 0xff6600 : 0x4499ff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending });
+
+    // Missile tube
+    const bodyGeo = new THREE.CylinderGeometry(0.18 * scale, 0.18 * scale, 3.8 * scale, 10);
+    bodyGeo.rotateX(Math.PI / 2);
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    group.add(body);
+
+    // Sharp nose
+    const noseGeo = new THREE.ConeGeometry(0.18 * scale, 1.1 * scale, 10);
+    noseGeo.rotateX(-Math.PI / 2);
+    const nose = new THREE.Mesh(noseGeo, noseMat);
+    nose.position.set(0, 0, -(1.9 + 0.55) * scale);
+    group.add(nose);
+
+    // Tail shroud
+    const tailGeo = new THREE.CylinderGeometry(0.22 * scale, 0.18 * scale, 0.5 * scale, 10);
+    tailGeo.rotateX(Math.PI / 2);
+    const tail = new THREE.Mesh(tailGeo, noseMat);
+    tail.position.set(0, 0, (1.9 + 0.25) * scale);
+    group.add(tail);
+
+    // Trapezoidal fins x4
+    const finShape = new THREE.Shape();
+    finShape.moveTo(0, 0);
+    finShape.lineTo(0.55 * scale, -0.3 * scale);
+    finShape.lineTo(0.55 * scale, -0.7 * scale);
+    finShape.lineTo(0,           -0.45 * scale);
+    const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.04 * scale, bevelEnabled: false });
+    finGeo.rotateX(Math.PI / 2);
+    finGeo.center();
+
+    for (let i = 0; i < 4; i++) {
+        const fin = new THREE.Mesh(finGeo, finMat);
+        fin.rotation.z = (Math.PI / 2) * i;
+        fin.position.set(0, 0, 1.6 * scale);
+        group.add(fin);
+    }
+
+    // Small forward fins
+    const canardShape = new THREE.Shape();
+    canardShape.moveTo(0, 0);
+    canardShape.lineTo(0.28 * scale, -0.12 * scale);
+    canardShape.lineTo(0.28 * scale, -0.32 * scale);
+    canardShape.lineTo(0,            -0.22 * scale);
+    const canardGeo = new THREE.ExtrudeGeometry(canardShape, { depth: 0.03 * scale, bevelEnabled: false });
+    canardGeo.rotateX(Math.PI / 2);
+    canardGeo.center();
+
+    for (let i = 0; i < 4; i++) {
+        const canard = new THREE.Mesh(canardGeo, finMat);
+        canard.rotation.z = (Math.PI / 2) * i;
+        canard.position.set(0, 0, -1.0 * scale);
+        group.add(canard);
+    }
+
+    // Rocket thruster nozzle
+    const nozzleGeo = new THREE.CylinderGeometry(0.1 * scale, 0.18 * scale, 0.3 * scale, 10);
+    nozzleGeo.rotateX(Math.PI / 2);
+    const nozzle = new THREE.Mesh(nozzleGeo, new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.95, roughness: 0.1 }));
+    nozzle.position.set(0, 0, (1.9 + 0.5 + 0.15) * scale);
+    group.add(nozzle);
+
+    // Motor Flame cone
+    const flameGeo = new THREE.ConeGeometry(0.1 * scale, 1.0 * scale, 8);
+    flameGeo.rotateX(-Math.PI / 2);
+    const flame = new THREE.Mesh(flameGeo, flameMat);
+    flame.position.set(0, 0, (1.9 + 0.5 + 0.15 + 0.5) * scale);
+    flame.name = 'missileFlame';
+    group.add(flame);
+
+    // Back glow ring
+    const glowGeo = new THREE.SphereGeometry(0.35 * scale, 8, 8);
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    glow.position.set(0, 0, (1.9 + 0.5 + 0.15) * scale);
+    group.add(glow);
+
+    scene.add(group);
+    return group;
+}
+
+function fireMissile() {
+    if (!isPlaying || isGameOver) return;
+    if (missileCount <= 0) return;
+    const target = findLockedTarget();
+    if (!target) return;
+    
+    missileCount--;
+    document.getElementById('hud-missiles').innerText = missileCount;
+    playMissileLaunchSound();
+
+    const missile = createMissileModel(false);
+    missile.position.copy(playerPos);
+    missile.userData = { target, speed: 330, life: 8 };
+    
+    scene.add(missile);
+    missiles.push(missile);
+
+    setTimeout(() => {
+        if (missileCount < CONFIG.MAX_MISSILES) {
+            missileCount++;
+            document.getElementById('hud-missiles').innerText = missileCount;
+        }
+    }, CONFIG.RELOAD_TIME);
+}
+
+function launchTacticalNukeMissile() {
+    if (!isPlaying || isGameOver) return;
+    const now = Date.now();
+    if (now - lastNukeTime < CONFIG.NUKE_COOLDOWN_MS) return;
+    lastNukeTime = now;
+    playMissileLaunchSound();
+
+    const nukeMissile = createMissileModel(true);
+    nukeMissile.position.copy(playerPos);
+    
+    const dir = new THREE.Vector3(0, 0, -1).applyEuler(playerRot).normalize();
+    // 2500 km/h = 694.4 m/s. Range of 10km (10000m) -> life limit 14.4s
+    nukeMissile.userData = { velocity: dir.multiplyScalar(694.4), life: 14.4, distTravelled: 0 };
+    
+    scene.add(nukeMissile);
+    nukeMissiles.push(nukeMissile);
+}
+
+function findLockedTarget() {
+    const maxRange = 6000;
+    const forward = new THREE.Vector3(0, 0, -1).applyEuler(playerRot).normalize();
+    let bestEnemy = null, bestDot = 0.92;
+    enemies.forEach(e => {
+        const dist = playerPos.distanceTo(e.position);
+        if (dist > maxRange) return;
+        const toEnemy = e.position.clone().sub(playerPos).normalize();
+        const dot = forward.dot(toEnemy);
+        if (dot > bestDot) { bestDot = dot; bestEnemy = e; }
+    });
+    return bestEnemy;
+}
+
+// ===== SIMULATION DESTRUCTION / GAMEOVER =====
+function triggerGameOver(reason = "戦闘機が市街地に衝突、大破しました。") {
+    if (isGameOver) return;
+    isGameOver = true;
+    isPlaying = false;
+    
+    if (engineGainNode && audioCtx) {
+        engineGainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+        engineGainNode.gain.setValueAtTime(engineGainNode.gain.value, audioCtx.currentTime);
+        engineGainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.2);
+    }
+    
+    document.getElementById('gameover-reason').innerText = reason;
+    document.getElementById('final-score').innerText = score;
+    document.getElementById('gameover-overlay').style.display = 'flex';
+    
+    if (document.pointerLockElement) document.exitPointerLock();
+}
+
+function respawnPlayer() {
+    document.getElementById('gameover-overlay').style.display = 'none';
+    playerPos.set(RUNWAY_START.x, RUNWAY_START.y + 1000, RUNWAY_START.z);
+    playerRot.set(0, RUNWAY_HEADING, 0);
+    speed = 83.33; throttle = 10; score = 0;
+    missileCount = CONFIG.MAX_MISSILES; playerLife = 100;
+    lastNukeTime = -CONFIG.NUKE_COOLDOWN_MS;
+    isGameOver = false; isPlaying = false;
+    
+    const startOverlay = document.getElementById('start-overlay');
+    startOverlay.style.display = 'flex';
+    startOverlay.style.opacity = '1';
+    
+    document.getElementById('hud-score').innerText = 0;
+    document.getElementById('hud-missiles').innerText = CONFIG.MAX_MISSILES;
+    document.getElementById('hud-life-val').innerText = '100%';
+    document.getElementById('hud-life-bar').style.width = '100%';
+}
+
+// ===== REAL-TIME HUD & WAYPOINT COMPUTATION =====
+function updateHUDAndCockpit() {
+    document.getElementById('hud-speed').innerText = Math.round(speed * 3.6);
+    document.getElementById('hud-alt').innerText = Math.round(playerPos.y);
+    document.getElementById('hud-throttle').innerText = Math.round(throttle);
+    document.getElementById('hud-score').innerText = score;
+
+    // Health Shield HUD
+    document.getElementById('hud-life-val').innerText = `${Math.round(playerLife)}%`;
+    const lifeBar = document.getElementById('hud-life-bar');
+    if (lifeBar) {
+        lifeBar.style.width = `${playerLife}%`;
+        lifeBar.style.background = playerLife < 30 ? '#ff2222' : playerLife < 65 ? '#ffaa00' : '#00ff55';
+    }
+
+    // Nuke cooldown progress
+    const elapsed = Date.now() - lastNukeTime;
+    const nukeStateDiv = document.getElementById('hud-nuke-state');
+    const nukeBar = document.getElementById('hud-nuke-bar');
+    if (nukeStateDiv && nukeBar) {
+        const ratio = Math.min(1.0, elapsed / CONFIG.NUKE_COOLDOWN_MS);
+        nukeBar.style.width = `${ratio * 100}%`;
+        if (elapsed >= CONFIG.NUKE_COOLDOWN_MS) {
+            nukeStateDiv.innerText = "NUKE: READY"; nukeStateDiv.style.color = "#00ff55"; nukeBar.style.background = "#00ff55";
+        } else {
+            const rem = Math.ceil((CONFIG.NUKE_COOLDOWN_MS - elapsed) / 1000);
+            nukeStateDiv.innerText = `NUKE: CHARGING ${rem}s`; nukeStateDiv.style.color = "#ffaa00"; nukeBar.style.background = "#ffaa00";
+        }
+    }
+
+    // Throttle / Engine speed label
+    const engineState = document.getElementById('hud-engine-state');
+    if (engineState) {
+        if (throttle >= 90) { engineState.innerText = "ENGINE: AFTERBURNER MAX 3000km/h"; engineState.style.color = "#ff6600"; }
+        else if (throttle >= 50) { engineState.innerText = "ENGINE: MIL POWER"; engineState.style.color = "#00ff55"; }
+        else { engineState.innerText = "ENGINE: IDLE"; engineState.style.color = "#88aa88"; }
+    }
+
+    // Pitch Ladder Rotation based on aircraft attitudes
+    const hudPitch = document.getElementById('hud-pitch');
+    const rollDeg = playerRot.z * (180 / Math.PI);
+    const pitchOffset = playerRot.x * 120;
+    hudPitch.style.transform = `translate(-50%,-50%) rotate(${rollDeg}deg) translateY(${pitchOffset}px)`;
+
+    // Fog & Ambient light blending with Altitude
+    const altM = playerPos.y;
+    if (selectedTime === "DAY") {
+        const t = Math.min(1.0, Math.max(0, altM / 8000));
+        const bg = new THREE.Color(0xaecdf5).lerp(new THREE.Color(0x040914), t);
+        scene.background.copy(bg); scene.fog.color.copy(bg);
+    } else {
+        scene.background.setHex(altM > 2500 ? 0x030610 : altM > 1000 ? 0x081223 : 0x102138);
+        scene.fog.color.setHex(altM > 2500 ? 0x030610 : altM > 0x0e1b2f ? 0x0e1b2f : 0x0a1222);
+    }
+
+    // Missile Lock Target HUD Box
+    const locked = findLockedTarget();
+    const lockBox = document.getElementById('hud-lock');
+    if (locked) {
+        const sp = locked.position.clone().project(camera);
+        if (sp.z < 1) {
+            const x = (sp.x * .5 + .5) * window.innerWidth;
+            const y = (-(sp.y * .5) + .5) * window.innerHeight;
+            lockBox.style.display = 'flex'; lockBox.style.left = `${x-45}px`; lockBox.style.top = `${y-45}px`;
+            document.getElementById('lock-dist').innerText = (playerPos.distanceTo(locked.position) / 1000).toFixed(1);
+        } else { lockBox.style.display = 'none'; }
+    } else { lockBox.style.display = 'none'; }
+
+    // WAYPOINT 1: KAWAGUCHI STATION (緑マーク)
+    const wpmSta = document.getElementById('waypoint-sta');
+    if (wpmSta) {
+        const sp = KAWAGUCHI_CENTER.clone().project(camera);
+        document.getElementById('waypoint-sta-dist').innerText = `${(playerPos.distanceTo(KAWAGUCHI_CENTER)/1000).toFixed(1)} km`;
+        if (sp.z < 1 && Math.abs(sp.x) < 0.85 && Math.abs(sp.y) < 0.8) {
+            wpmSta.style.display = 'flex';
+            wpmSta.style.left = `${(sp.x*.5+.5)*window.innerWidth - 57}px`;
+            wpmSta.style.top = `${(-(sp.y*.5)+.5)*window.innerHeight - 55}px`;
+        } else { wpmSta.style.display = 'none'; }
+    }
+
+    // WAYPOINT 2: KAWAGUCHI HIGH SCHOOL (水色マーク)
+    const wpmSch = document.getElementById('waypoint-school');
+    if (wpmSch) {
+        const sp = HIGH_SCHOOL_CENTER.clone().project(camera);
+        document.getElementById('waypoint-school-dist').innerText = `${(playerPos.distanceTo(HIGH_SCHOOL_CENTER)/1000).toFixed(1)} km`;
+        if (sp.z < 1 && Math.abs(sp.x) < 0.85 && Math.abs(sp.y) < 0.8) {
+            wpmSch.style.display = 'flex';
+            wpmSch.style.left = `${(sp.x*.5+.5)*window.innerWidth - 57}px`;
+            wpmSch.style.top = `${(-(sp.y*.5)+.5)*window.innerHeight + 10}px`; // slightly offset down to avoid text overlap
+        } else { wpmSch.style.display = 'none'; }
+    }
+
+    // Dynamic enemy screen overlays
+    enemies.forEach(enemy => {
+        const marker = enemy.userData.markerDiv;
+        if (!marker) return;
+        const sp = enemy.position.clone().project(camera);
+        const dist = (playerPos.distanceTo(enemy.position) / 1000).toFixed(1);
+        const label = marker.querySelector('.enemy-dist-label');
+        if (label) label.innerText = `${dist} km`;
+        if (sp.z < 1 && Math.abs(sp.x) < 0.9 && Math.abs(sp.y) < 0.85) {
+            marker.style.display = 'flex';
+            marker.style.left = `${(sp.x*.5+.5)*window.innerWidth-35}px`;
+            marker.style.top = `${(-(sp.y*.5)+.5)*window.innerHeight-35}px`;
+        } else { marker.style.display = 'none'; }
+    });
+
+    // Radar screen calculations
+    const radarDisplay = document.getElementById('radar-display');
+    document.querySelectorAll('.radar-enemy-dot').forEach(el => el.remove());
+    enemies.forEach(enemy => {
+        const relPos = enemy.position.clone().sub(playerPos);
+        const radarRange = 12000;
+        const localPos = relPos.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -playerRot.y);
+        const dist = Math.sqrt(localPos.x * localPos.x + localPos.z * localPos.z);
+        if (dist < radarRange) {
+            const dot = document.createElement('div');
+            dot.className = 'radar-enemy-dot';
+            dot.style.left = `${65 + (localPos.x / radarRange) * 60 - 2.5}px`;
+            dot.style.top = `${65 + (localPos.z / radarRange) * 60 - 2.5}px`;
+            radarDisplay.appendChild(dot);
+        }
+    });
+}
+
+// ===== AEROSPACE PHYSICS MODEL =====
+function updatePhysics(dt) {
+    // Throttle controls
+    if (keys.throttleUp) throttle = Math.min(100, throttle + 30 * dt);
+    if (keys.throttleDown) throttle = Math.max(0, throttle - 25 * dt);
+
+    // Speed limits (Max speed 3000km/h @ 100% full shift)
+    const maxSpeed = throttle >= 90 ? (800 + (throttle - 90) / 10 * 2200) / 3.6 : (100 + (throttle / 90) * 700) / 3.6;
+    const minSpeed = 80 / 3.6;
+    const targetSpeed = (throttle / 100) * maxSpeed;
+    speed += (targetSpeed - speed) * Math.min(1, dt * 0.5);
+    speed = Math.max(minSpeed * 0.35, speed);
+
+    // Attitude maneuvering ratios
+    const pitchRate = 0.82 * dt, rollRate = 1.25 * dt, yawRate = 0.5 * dt;
+    if (keys.pitchUp) playerRot.x = Math.max(-Math.PI * 0.45, playerRot.x - pitchRate);
+    if (keys.pitchDown) playerRot.x = Math.min(Math.PI * 0.45, playerRot.x + pitchRate);
+    if (keys.rollLeft) playerRot.z = Math.min(Math.PI * 0.75, playerRot.z + rollRate);
+    if (keys.rollRight) playerRot.z = Math.max(-Math.PI * 0.75, playerRot.z - rollRate);
+    if (keys.yawLeft) playerRot.y += yawRate;
+    if (keys.yawRight) playerRot.y -= yawRate;
+
+    // Banking creates rolling yaw slips
+    playerRot.y -= playerRot.z * 0.42 * dt;
+    // Autocenter roll
+    if (!keys.rollLeft && !keys.rollRight) playerRot.z *= (1 - dt * 1.55);
+    // Autocenter pitch
+    if (!keys.pitchUp && !keys.pitchDown) playerRot.x *= (1 - dt * 0.35);
+
+    // Position integration
+    const forward = new THREE.Vector3(0, 0, -1).applyEuler(playerRot);
+    playerPos.addScaledVector(forward, speed * dt);
+
+    // Flight aerodynamics lift vs gravity slips
+    const lift = (speed / 250) * Math.cos(playerRot.x);
+    playerPos.y += (lift - 1) * 9.8 * dt * 0.5;
+
+    // Ground impact calculations
+    const terrainH = getTerrainHeight(playerPos.x, playerPos.z);
+    if (playerPos.y < terrainH + 28) {
+        if (!isGameOver) triggerGameOver("川口の河川敷・市街地に墜落しました。");
+        return;
+    }
+
+    // World boundary wrapping
+    const boundary = CONFIG.WORLD_SIZE / 2 - 1000;
+    if (Math.abs(playerPos.x) > boundary || Math.abs(playerPos.z) > boundary) {
+        playerPos.x = Math.max(-boundary, Math.min(boundary, playerPos.x));
+        playerPos.z = Math.max(-boundary, Math.min(boundary, playerPos.z));
+    }
+
+    // Cap altitude limits
+    if (playerPos.y > 20000) playerPos.y = 20000;
+
+    // Architectural collision tests
+    buildings.forEach(b => {
+        const dx = Math.abs(playerPos.x - b.position.x);
+        const dy = Math.abs(playerPos.y - b.position.y);
+        const dz = Math.abs(playerPos.z - b.position.z);
+        if (dx < b.halfWidth && dy < b.halfHeight && dz < b.halfDepth) {
+            if (!isGameOver) triggerGameOver(`建物「${b.name}」に衝突しました。`);
+        }
+    });
+
+    // Afterburner visual ignition
+    if (f15EngineFlame) {
+        const ab = throttle >= 90;
+        f15EngineFlame.visible = speed > 50;
+        f15EngineFlame.scale.setScalar(ab ? 1.55 + Math.random() * 0.35 : 0.65 + Math.random() * 0.25);
+        f15EngineFlame.traverse(child => {
+            if (child.material) {
+                child.material.color.setHex(ab ? 0x00aaff : 0xffaa00);
+                child.material.opacity = ab ? 0.95 : 0.6;
+            }
+        });
+    }
+}
+
+function updateBullets(dt) {
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.position.addScaledVector(b.userData.velocity, dt);
+        b.userData.life -= dt;
+        if (b.userData.life <= 0) { scene.remove(b); bullets.splice(i, 1); continue; }
+        
+        // Vulcan projectile hit test
+        for (let j = enemies.length - 1; j >= 0; j--) {
+            if (b.position.distanceTo(enemies[j].position) < 22) {
+                enemies[j].userData.hp -= 20;
+                scene.remove(b); bullets.splice(i, 1);
+                if (enemies[j].userData.hp <= 0) {
+                    playExplosionSound(false);
+                    score += 100;
+                    playerLife = Math.min(100, playerLife + 2); // 撃墜につきHP2%回復
+                    if (enemies[j].userData.markerDiv) enemies[j].userData.markerDiv.remove();
+                    scene.remove(enemies[j]); enemies.splice(j, 1);
+                    spawnEnemy();
+                }
+                break;
+            }
+        }
+    }
+}
+
+function updateMissiles(dt) {
+    for (let i = missiles.length - 1; i >= 0; i--) {
+        const m = missiles[i];
+        m.userData.life -= dt;
+        if (m.userData.life <= 0 || !m.userData.target || !enemies.includes(m.userData.target)) {
+            scene.remove(m); missiles.splice(i, 1); continue;
+        }
+        
+        const dir = m.userData.target.position.clone().sub(m.position).normalize();
+        m.position.addScaledVector(dir, m.userData.speed * dt);
+        
+        const targetPt = m.position.clone().add(dir);
+        m.lookAt(targetPt.x, targetPt.y, targetPt.z);
+        
+        const flame = m.getObjectByName('missileFlame');
+        if (flame) { flame.scale.setScalar(0.85 + Math.random() * 0.3); }
+
+        if (m.position.distanceTo(m.userData.target.position) < 32) {
+            playExplosionSound(false);
+            score += 200;
+            playerLife = Math.min(100, playerLife + 2); // 撃墜につきHP2%回復
+            if (m.userData.target.userData.markerDiv) m.userData.target.userData.markerDiv.remove();
+            scene.remove(m.userData.target);
+            enemies.splice(enemies.indexOf(m.userData.target), 1);
+            spawnEnemy();
+            scene.remove(m); missiles.splice(i, 1);
+        }
+    }
+}
+
+function updateNukeMissiles(dt) {
+    for (let i = nukeMissiles.length - 1; i >= 0; i--) {
+        const n = nukeMissiles[i];
+        const moved = n.userData.velocity.length() * dt;
+        n.position.addScaledVector(n.userData.velocity, dt);
+        n.userData.life -= dt;
+        n.userData.distTravelled = (n.userData.distTravelled || 0) + moved;
+        
+        const velDir = n.userData.velocity.clone().normalize();
+        const targetPt = n.position.clone().add(velDir);
+        n.lookAt(targetPt);
+        
+        const flame = n.getObjectByName('missileFlame');
+        if (flame) { flame.scale.setScalar(1.0 + Math.random() * 0.5); }
+
+        const terrH = getTerrainHeight(n.position.x, n.position.z);
+        let detonated = false;
+
+        // Ground detonation check
+        if (n.position.y < terrH + 10) detonated = true;
+
+        // Building collision
+        if (!detonated) {
+            for (const b of buildings) {
+                const dx = Math.abs(n.position.x - b.position.x);
+                const dy = Math.abs(n.position.y - b.position.y);
+                const dz = Math.abs(n.position.z - b.position.z);
+                if (dx < b.halfWidth + 10 && dy < b.halfHeight + 10 && dz < b.halfDepth + 10) {
+                    detonated = true; break;
+                }
+            }
+        }
+
+        // Direct proximity nuke hit with enemies
+        if (!detonated) {
+            for (const e of enemies) {
+                if (n.position.distanceTo(e.position) < 35) { detonated = true; break; }
+            }
+        }
+
+        // Range detonation (10km / 10,000m range constraint)
+        if (n.userData.life <= 0 || n.userData.distTravelled >= 10000) detonated = true;
+
+        if (detonated) {
+            const blastCenter = n.position.clone();
+            playExplosionSound(true);
+            
+            document.getElementById('nuke-flash').style.display = 'block';
+            setTimeout(() => { document.getElementById('nuke-flash').style.display = 'none'; }, 400);
+            
+            createMushroomCloud(blastCenter);
+            
+            // Splash damage radius: 4km (4,000 meters)
+            const blastRadius = 4000;
+            
+            // Sweep damage to all nearby enemies
+            for (let j = enemies.length - 1; j >= 0; j--) {
+                if (blastCenter.distanceTo(enemies[j].position) < blastRadius) {
+                    score += 150;
+                    playerLife = Math.min(100, playerLife + 2); // 撃墜につきHP2%回復
+                    if (enemies[j].userData.markerDiv) enemies[j].userData.markerDiv.remove();
+                    scene.remove(enemies[j]); enemies.splice(j, 1);
+                }
+            }
+            
+            // Shockwave damage to player
+            if (playerPos.distanceTo(blastCenter) < blastRadius) {
+                const dmgRatio = 1.0 - (playerPos.distanceTo(blastCenter) / blastRadius);
+                playerLife -= 80 * dmgRatio;
+                if (playerLife <= 0) {
+                    playerLife = 0;
+                    triggerGameOver("戦術核爆発の衝撃波に巻き込まれ自滅しました。");
+                }
+            }
+            
+            // Replenish dead enemies
+            while (enemies.length < CONFIG.ENEMY_COUNT) spawnEnemy();
+            scene.remove(n); nukeMissiles.splice(i, 1);
+        }
+    }
+}
+
+function updateEnemyAI(dt) {
+    enemies.forEach(enemy => {
+        enemy.userData.turnTimer -= dt;
+        if (enemy.userData.turnTimer <= 0) {
+            enemy.userData.turnTimer = 2 + Math.random() * 4;
+            enemy.userData.evadeX = (Math.random() - 0.5) * 2;
+            enemy.userData.evadeY = (Math.random() - 0.5) * 2;
+        }
+        
+        // Track towards player
+        const toPlayer = playerPos.clone().sub(enemy.position).normalize();
+        const currentDir = new THREE.Vector3(0, 0, -1).applyQuaternion(enemy.quaternion);
+        const newDir = currentDir.lerp(toPlayer, dt * 0.58).normalize();
+        enemy.lookAt(enemy.position.clone().add(newDir));
+        enemy.position.addScaledVector(newDir, enemy.userData.speed * dt);
+        
+        // Height safety
+        const terrH = getTerrainHeight(enemy.position.x, enemy.position.z);
+        if (enemy.position.y < terrH + 200) enemy.position.y += 30 * dt;
+        
+        // Enemy firing
+        enemy.userData.shootCooldown -= dt;
+        if (enemy.userData.shootCooldown <= 0) {
+            enemy.userData.shootCooldown = 1.5 + Math.random() * 2.5;
+            const dist = playerPos.distanceTo(enemy.position);
+            if (dist < 3200) {
+                const bGeo = new THREE.SphereGeometry(0.5, 4, 4);
+                const bMat = new THREE.MeshBasicMaterial({ color: 0xff3300 });
+                const bullet = new THREE.Mesh(bGeo, bMat);
+                bullet.position.copy(enemy.position);
+                const dir = playerPos.clone().sub(enemy.position).normalize();
+                bullet.userData = { velocity: dir.multiplyScalar(210), life: 3.0 };
+                scene.add(bullet);
+                enemyBullets.push(bullet);
+            }
+        }
+    });
+
+    // Enemy bullets update & player hit tests
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+        const b = enemyBullets[i];
+        b.position.addScaledVector(b.userData.velocity, dt);
+        b.userData.life -= dt;
+        if (b.userData.life <= 0) { scene.remove(b); enemyBullets.splice(i, 1); continue; }
+        
+        if (b.position.distanceTo(playerPos) < 15) {
+            playerLife -= 10;
+            document.getElementById('damage-flash').style.display = 'block';
+            setTimeout(() => { document.getElementById('damage-flash').style.display = 'none'; }, 120);
+            scene.remove(b); enemyBullets.splice(i, 1);
+            if (playerLife <= 0) { playerLife = 0; triggerGameOver("敵航空隊の集中放火を受け、撃墜されました。"); }
+        }
+    }
+}
+
+// ===== CAMERA MATRIX INTERPOLATION =====
+function updateCamera() {
+    if (cameraMode === "COCKPIT") {
+        camera.position.copy(playerPos).addScaledVector(new THREE.Vector3(0, 1.1, 0), 1);
+        camera.rotation.copy(playerRot);
+        if (playerF15Mesh) playerF15Mesh.visible = false;
+        if (cockpitGroup) cockpitGroup.visible = true;
+    } else {
+        const back = new THREE.Vector3(0, 0, 1).applyEuler(playerRot);
+        const camTarget = playerPos.clone().addScaledVector(back, 36).add(new THREE.Vector3(0, 8, 0));
+        camera.position.lerp(camTarget, 0.12);
+        camera.lookAt(playerPos);
+        if (playerF15Mesh) {
+            playerF15Mesh.visible = true;
+            playerF15Mesh.position.copy(playerPos);
+            playerF15Mesh.rotation.copy(playerRot);
+        }
+        if (cockpitGroup) cockpitGroup.visible = false;
+    }
+}
+
+// ===== ADVANCED TACTICAL MUSHROOM CLOUD YIELD =====
+let mushroomClouds = [];
+
+function createMushroomCloud(blastPos) {
+    const group = new THREE.Group();
+    group.position.copy(blastPos);
+
+    function makeCloudTex(r, g, b, a0, a1) {
+        const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+        const ctx = c.getContext('2d');
+        const gr = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+        gr.addColorStop(0,   `rgba(${r},${g},${b},${a0})`);
+        gr.addColorStop(0.4, `rgba(${r},${g},${b},${a0 * 0.75})`);
+        gr.addColorStop(0.75,`rgba(${r},${g},${b},${a0 * 0.25})`);
+        gr.addColorStop(1,   `rgba(0,0,0,0)`);
+        ctx.fillStyle = gr; ctx.fillRect(0, 0, 128, 128);
+        return new THREE.CanvasTexture(c);
+    }
+
+    // Fireball (Explosion core)
+    const fireballTex = makeCloudTex(255, 75, 5, 0.95, 0);
+    const fireballMat = new THREE.SpriteMaterial({ map: fireballTex, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+    const fireball = new THREE.Sprite(fireballMat);
+    fireball.scale.set(1200, 1200, 1);
+    group.add(fireball);
+
+    // Stem (Dust pillar)
+    const stemTex = makeCloudTex(185, 120, 75, 0.72, 0);
+    const stemCount = 18;
+    const stemMaxH = 6500;
+    for (let i = 0; i < stemCount; i++) {
+        const t = i / stemCount;
+        const mat = new THREE.SpriteMaterial({ map: stemTex, transparent: true, opacity: 0.58 - t * 0.15, blending: THREE.NormalBlending, depthWrite: false });
+        const sp = new THREE.Sprite(mat);
+        const w = 1200 - t * 700;
+        sp.scale.set(w, w * 0.7, 1);
+        sp.position.set(
+            (Math.random() - 0.5) * 80,
+            t * stemMaxH + 100,
+            (Math.random() - 0.5) * 80
+        );
+        group.add(sp);
+    }
+
+    // Cap (Condensation crown)
+    const capTex = makeCloudTex(230, 190, 150, 0.88, 0);
+    const capDarkTex = makeCloudTex(110, 75, 45, 0.7, 0);
+    const capY = stemMaxH;
+    const capLayers = [
+        { yOff: -1000, w: 5000, h: 1800, tex: capDarkTex },
+        { yOff:  -200, w: 7500, h: 2000, tex: capTex },
+        { yOff:   600, w: 8200, h: 1800, tex: capTex },
+        { yOff:  1200, w: 7000, h: 1400, tex: capTex },
+        { yOff:  1700, w: 5500, h: 1100, tex: capTex },
+        { yOff:  2100, w: 3500, h:  800, tex: capTex },
+    ];
+    capLayers.forEach(layer => {
+        for (let k = 0; k < 6; k++) {
+            const mat = new THREE.SpriteMaterial({ map: layer.tex, transparent: true, opacity: 0.68 + Math.random() * 0.22, blending: THREE.NormalBlending, depthWrite: false });
+            const sp = new THREE.Sprite(mat);
+            sp.scale.set(layer.w + Math.random() * 600, layer.h, 1);
+            sp.position.set(
+                (Math.random() - 0.5) * 400,
+                capY + layer.yOff,
+                (Math.random() - 0.5) * 400
+            );
+            group.add(sp);
+        }
+    });
+
+    // Expansion ring
+    const ringTex = makeCloudTex(255, 110, 20, 0.7, 0);
+    for (let k = 0; k < 5; k++) {
+        const mat = new THREE.SpriteMaterial({ map: ringTex, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
+        const sp = new THREE.Sprite(mat);
+        const w = 2000 + k * 600;
+        sp.scale.set(w, w * 0.3, 1);
+        sp.position.set((Math.random()-0.5)*200, 200 + k * 80, (Math.random()-0.5)*200);
+        group.add(sp);
+    }
+
+    scene.add(group);
+    mushroomClouds.push({ group, age: 0, fireball, fireballMat });
+    return group;
+}
+
+function updateMushroomClouds(dt) {
+    const GROW_TIME = 10;
+    const HOLD_TIME = 15;
+    const FADE_TIME = 30;
+    const TOTAL_LIFE = GROW_TIME + HOLD_TIME + FADE_TIME;
+
+    for (let i = mushroomClouds.length - 1; i >= 0; i--) {
+        const mc = mushroomClouds[i];
+        mc.age += dt;
+
+        const growT = Math.min(1.0, mc.age / GROW_TIME);
+        mc.group.scale.setScalar(0.05 + growT * 0.95);
+
+        if (mc.fireballMat) {
+            mc.fireballMat.opacity = Math.max(0, 0.9 - mc.age / 3);
+        }
+
+        const fadeStart = GROW_TIME + HOLD_TIME;
+        if (mc.age > fadeStart) {
+            const fadeT = Math.min(1.0, (mc.age - fadeStart) / FADE_TIME);
+            const globalOpacity = 1.0 - fadeT;
+            mc.group.traverse(obj => {
+                if (obj.material) {
+                    obj.material.opacity = (obj.material._baseOpacity !== undefined
+                        ? obj.material._baseOpacity
+                        : (obj.material._baseOpacity = obj.material.opacity)) * globalOpacity;
+                }
+            });
+        }
+
+        if (mc.age >= TOTAL_LIFE) {
+            scene.remove(mc.group);
+            mushroomClouds.splice(i, 1);
+        }
+    }
+}
+
+// ===== HEAVY CUMULONIMBUS CLOUD (Northwest towards Saitama Mountains) =====
+function createKawaguchiCumulonimbus() {
+    const cx = -6500, cz = -8000;
+    const group = new THREE.Group();
+    group.position.set(cx, 0, cz);
+
+    function makeTex(r, g, b, opacity) {
+        const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+        const ctx = c.getContext('2d');
+        const gr = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+        gr.addColorStop(0,    `rgba(${r},${g},${b},${opacity})`);
+        gr.addColorStop(0.35, `rgba(${r},${g},${b},${(opacity*0.75).toFixed(2)})`);
+        gr.addColorStop(0.7,  `rgba(${r},${g},${b},${(opacity*0.28).toFixed(2)})`);
+        gr.addColorStop(1,    `rgba(0,0,0,0)`);
+        ctx.fillStyle = gr; ctx.fillRect(0, 0, 256, 256);
+        return new THREE.CanvasTexture(c);
+    }
+
+    const isNight = selectedTime === "NIGHT";
+    const topR = isNight ? 42  : 245, topG = isNight ? 52  : 248, topB = isNight ? 82  : 255;
+    const midR = isNight ? 26  : 215, midG = isNight ? 36  : 220, midB = isNight ? 62  : 235;
+    const botR = isNight ? 14  : 140, botG = isNight ? 20  : 148, botB = isNight ? 38  : 165;
+
+    const texTop = makeTex(topR, topG, topB, 0.8);
+    const texMid = makeTex(midR, midG, midB, 0.75);
+    const texBot = makeTex(botR, botG, botB, 0.7);
+    const texAnv = makeTex(topR, topG, topB, 0.4);
+
+    const maxH = 10000;
+    const layers = 38;
+    const stepH = maxH / layers;
+
+    for (let i = 0; i < layers; i++) {
+        const t = i / layers;
+        const currentH = t * maxH;
+
+        let tex, numSp, baseW, baseH;
+        if (t < 0.18) {
+            tex = texBot; numSp = 5; baseW = 2800 + t * 800; baseH = baseW * 0.42;
+        } else if (t < 0.72) {
+            const bulge = Math.sin((t - 0.18) / 0.54 * Math.PI);
+            tex = texMid; numSp = 5; baseW = 2000 + bulge * 600; baseH = baseW * 0.55;
+        } else {
+            const anvilT = (t - 0.72) / 0.28;
+            tex = (anvilT > 0.6) ? texAnv : texTop;
+            numSp = 7;
+            baseW = 2600 + anvilT * 6000;
+            baseH = baseW * (0.22 - anvilT * 0.1);
+        }
+
+        for (let j = 0; j < numSp; j++) {
+            const op = isNight ? 0.55 : 0.72;
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: op + Math.random() * 0.18, blending: THREE.NormalBlending, depthWrite: false, fog: true });
+            const sp = new THREE.Sprite(mat);
+            const scaleVar = 0.88 + Math.random() * 0.24;
+            sp.scale.set(baseW * scaleVar, baseH * scaleVar, 1);
+            sp.position.set(
+                (Math.random() - 0.5) * (t > 0.72 ? baseW * 0.45 : 350),
+                currentH + (Math.random() - 0.5) * stepH * 0.6,
+                (Math.random() - 0.5) * (t > 0.72 ? baseW * 0.45 : 350)
+            );
+            group.add(sp);
+        }
+    }
+
+    if (isNight) {
+        const lightning = new THREE.PointLight(0x8899ff, 0, 8000);
+        lightning.position.set(0, 4000, 0);
+        lightning.name = 'cbLightning';
+        group.add(lightning);
+    }
+
+    scene.add(group);
+}
+
+function toggleCameraView() {
+    if (cameraMode === "COCKPIT") {
+        cameraMode = "3RD_PERSON";
+        document.getElementById('camera-toggle-btn').innerText = "[V] VIEW: 3RD PERSON";
+    } else {
+        cameraMode = "COCKPIT";
+        document.getElementById('camera-toggle-btn').innerText = "[V] VIEW: COCKPIT";
+    }
+}
+
+// ===== SIMULATION LOOP =====
+function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+
+    if (isPlaying && !isGameOver) {
+        updatePhysics(dt);
+        updateBullets(dt);
+        updateMissiles(dt);
+        updateNukeMissiles(dt);
+        updateEnemyAI(dt);
+        updateMushroomClouds(dt);
+        
+        // Thunder Lightning flasher
+        if (selectedTime === "NIGHT" && Math.random() < 0.004) {
+            scene.traverse(obj => {
+                if (obj.name === 'cbLightning') {
+                    obj.intensity = 6 + Math.random() * 8;
+                    setTimeout(() => { obj.intensity = 0; }, 80 + Math.random() * 120);
+                }
+            });
+        }
+        updateCamera();
+        updateEngineSound();
+        updateHUDAndCockpit();
+        if (skyMesh) skyMesh.position.copy(camera.position);
+    } else if (!isPlaying && skyMesh) {
+        skyMesh.position.set(0, 0, 0);
+    }
+
+    renderer.render(scene, camera);
+}
+
+// ===== INITIALIZATION & EVENTS =====
+function init() {
+    RUNWAY_START = new THREE.Vector3(4000, -398, 5000); // 4km East, 5km South
+    playerPos = new THREE.Vector3(RUNWAY_START.x, RUNWAY_START.y + 1000, RUNWAY_START.z);
+    playerRot = new THREE.Euler(0, RUNWAY_HEADING, 0, 'YXZ');
+
+    clock = new THREE.Clock();
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x040914);
+    scene.fog = new THREE.FogExp2(0x0a1222, 0.00018);
+
+    camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 140000);
+    scene.add(camera);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    document.getElementById('game-container').appendChild(renderer.domElement);
+
+    ambientLight = new THREE.AmbientLight(0x28324a, 1.2);
+    scene.add(ambientLight);
+    sunLight = new THREE.DirectionalLight(0xffffff, 3.2);
+    sunLight.position.set(-35000, 12000, -25000);
+    scene.add(sunLight);
+
+    applyTimeOfEnvironment();
+    createRealisticTerrain();
+    createVolumetricClouds();
+    createKawaguchiCumulonimbus();
+    createCockpitFrame();
+    createF15PlayerModel();
+    createKawaguchiCity();
+    
+    for (let i = 0; i < CONFIG.ENEMY_COUNT; i++) spawnEnemy();
+
+    setupEvents();
+    animate(); 
+}
+
+function setupEvents() {
+    document.getElementById('time-day').addEventListener('click', () => {
+        document.getElementById('time-day').classList.add('active');
+        document.getElementById('time-night').classList.remove('active');
+        selectedTime = "DAY"; applyTimeOfEnvironment();
+    });
+    document.getElementById('time-night').addEventListener('click', () => {
+        document.getElementById('time-night').classList.add('active');
+        document.getElementById('time-day').classList.remove('active');
+        selectedTime = "NIGHT"; applyTimeOfEnvironment();
+    });
+    document.getElementById('camera-toggle-btn').addEventListener('click', toggleCameraView);
+
+    window.addEventListener('keydown', (e) => {
+        if (isGameOver) return;
+        const key = e.key.toLowerCase();
+        if (key === 'w' || e.key === 'ArrowUp') keys.pitchDown = true;
+        if (key === 's' || e.key === 'ArrowDown') keys.pitchUp = true;
+        if (key === 'a' || e.key === 'ArrowLeft') keys.rollLeft = true;
+        if (key === 'd' || e.key === 'ArrowRight') keys.rollRight = true;
+        if (key === 'q') keys.yawLeft = true;
+        if (key === 'e') keys.yawRight = true;
+        if (e.key === 'Shift') keys.throttleUp = true;
+        if (e.key === 'Control') { e.preventDefault(); keys.throttleDown = true; }
+        if (key === 'f') shootVulcan();
+        if (e.code === 'Space') { e.preventDefault(); fireMissile(); }
+        if (key === 'v') toggleCameraView();
+        if (e.code === 'Enter') { e.preventDefault(); launchTacticalNukeMissile(); }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        const key = e.key.toLowerCase();
+        if (key === 'w' || e.key === 'ArrowUp') keys.pitchDown = false;
+        if (key === 's' || e.key === 'ArrowDown') keys.pitchUp = false;
+        if (key === 'a' || e.key === 'ArrowLeft') keys.rollLeft = false;
+        if (key === 'd' || e.key === 'ArrowRight') keys.rollRight = false;
+        if (key === 'q') keys.yawLeft = false;
+        if (key === 'e') keys.yawRight = false;
+        if (e.key === 'Shift') keys.throttleUp = false;
+        if (e.key === 'Control') keys.throttleDown = false;
+    });
+
+    window.addEventListener('mousedown', (e) => {
+        if (isPlaying && !isGameOver && e.button === 0) shootVulcan();
+    });
+
+    document.getElementById('launch-btn').addEventListener('click', () => {
+        initAudio();
+        const overlay = document.getElementById('start-overlay');
+        overlay.style.opacity = '0';
+        
+        // Re-construct with chosen daytime materials
+        buildings.forEach(b => scene.remove(b.mesh));
+        obstructionLights.forEach(l => scene.remove(l));
+        buildings = []; obstructionLights = [];
+        createKawaguchiCity();
+        
+        setTimeout(() => {
+            overlay.style.display = 'none';
+            isPlaying = true; isGameOver = false;
+            try { renderer.domElement.requestPointerLock(); } catch (e) {}
+        }, 600);
+    });
+
+    document.getElementById('respawn-btn').addEventListener('click', respawnPlayer);
+
+    window.addEventListener('resize', () => {
+        if (camera && renderer) {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    });
+}
+
+window.onload = init;
+</script>
+
+</body></html>
