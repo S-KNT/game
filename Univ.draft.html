@@ -1,0 +1,983 @@
+<html lang="ja"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全国大学学部ドラフト - 称号＆フリー編成版</title>
+<style>
+  :root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --card-hover: #334155;
+    --accent-gold: #f59e0b;
+    --accent-blue: #38bdf8;
+    --accent-green: #10b981;
+    --accent-red: #ef4444;
+    --accent-purple: #c084fc;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --border-color: #334155;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    padding: 20px;
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 1350px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+  }
+
+  @media (max-width: 960px) {
+    .container {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  header {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+
+  header h1 {
+    font-size: 2rem;
+    color: var(--accent-gold);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+
+  header p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  .game-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    align-items: center;
+    background: #0f172a;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #000;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
+  }
+
+  .btn-secondary {
+    background: #475569;
+    color: #fff;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: #64748b;
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  .pass-counter {
+    font-weight: bold;
+    font-size: 1rem;
+    color: var(--accent-gold);
+    background: rgba(245, 158, 11, 0.1);
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--accent-gold);
+  }
+
+  .candidates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    background: #0f172a;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+
+  .card.spinning {
+    border-color: var(--accent-gold);
+    animation: pulse 0.5s infinite alternate;
+  }
+
+  @keyframes pulse {
+    from { border-color: rgba(245, 158, 11, 0.3); }
+    to { border-color: rgba(245, 158, 11, 1); }
+  }
+
+  .card-slot-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+  }
+
+  .card-crest {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--card-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--accent-gold);
+    margin: 10px 0 10px 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--accent-gold);
+  }
+
+  .card-univ {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 4px;
+    min-height: 28px;
+  }
+
+  .card-faculty {
+    font-size: 0.9rem;
+    color: var(--accent-blue);
+    margin-bottom: 10px;
+    min-height: 24px;
+  }
+
+  .card-deviation {
+    display: inline-block;
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-green);
+    border: 1px solid var(--accent-green);
+    padding: 2px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  .card-deviation.low-dev {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+  }
+
+  .card-meta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+  }
+
+  .select-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--accent-blue);
+    color: #0f172a;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+
+  .select-btn:hover:not(:disabled) {
+    background: #0284c7;
+    color: #fff;
+  }
+
+  .select-btn:disabled {
+    background: #334155;
+    color: #64748b;
+    cursor: not-allowed;
+  }
+
+  /* オーダー表サイドバー */
+  .lineup-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .lineup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+  }
+
+  .lineup-title {
+    font-size: 1.2rem;
+    color: var(--accent-gold);
+  }
+
+  .avg-dev {
+    font-size: 0.95rem;
+    color: var(--accent-green);
+    font-weight: bold;
+  }
+
+  .slot {
+    background: #0f172a;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .slot-num {
+    width: 32px;
+    height: 32px;
+    background: var(--card-bg);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.85rem;
+    color: var(--accent-gold);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+  }
+
+  .slot-info {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .slot-univ {
+    font-size: 0.9rem;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .slot-faculty {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .slot-pos-badge {
+    display: inline-block;
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent-blue);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    margin-top: 2px;
+  }
+
+  .slot-dev {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: var(--accent-green);
+    flex-shrink: 0;
+  }
+
+  .slot-dev.low-dev {
+    color: var(--accent-red);
+  }
+
+  .slot-empty {
+    color: #475569;
+    font-style: italic;
+    font-size: 0.85rem;
+  }
+
+  /* 称号表示モーダル・パネル */
+  .result-banner {
+    background: linear-gradient(135deg, #312e81, #1e1b4b);
+    border: 2px solid var(--accent-purple);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    display: none;
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-rank {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--accent-gold);
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+    margin-bottom: 6px;
+  }
+
+  .result-title {
+    font-size: 1.1rem;
+    color: var(--accent-purple);
+    font-weight: bold;
+    margin-bottom: 12px;
+  }
+
+  .result-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  /* 配置設定モーダル */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .modal {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 24px;
+    width: 90%;
+    max-width: 460px;
+    text-align: center;
+  }
+
+  .modal h3 {
+    margin-bottom: 15px;
+    color: var(--accent-gold);
+  }
+
+  .form-group {
+    margin-bottom: 15px;
+    text-align: left;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .form-select {
+    width: 100%;
+    padding: 10px;
+    background: #0f172a;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: bold;
+  }
+
+  .cancel-btn {
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-decoration: underline;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>🎓 全国大学学部ドラフト会議</h1>
+    <p>6連スロット同時ルーレット！超難関〜Fランまで対応！打順・守備位置を自由指定して最強チームを作ろう。</p>
+  </header>
+
+  <!-- 左側：ゲームメインエリア -->
+  <div class="game-section">
+    <div class="controls">
+      <button class="btn btn-primary" id="spinBtn" onclick="startRoulette()">🎲 6つ同時にルーレットを回す</button>
+      <button class="btn btn-secondary" id="passBtn" onclick="passTurn()" disabled="">パス（残り <span id="passLeftText">5</span> 回）</button>
+      <div class="pass-counter">パス残り: <span id="passBadge">5/5</span></div>
+    </div>
+
+    <!-- 結果表彰バナー -->
+    <div class="result-banner" id="resultBanner">
+      <div class="result-rank" id="resRank">S1</div>
+      <div class="result-title" id="resTitle">最難関大レベル</div>
+      <div class="result-desc" id="resDesc">チーム全打順が完成しました！最高峰の頭脳派チーム！</div>
+    </div>
+
+    <div>
+      <h3 style="font-size: 1.1rem; margin-bottom: 14px; color: var(--text-secondary);">ドラフト指名候補（6枠）</h3>
+      <div class="candidates-grid" id="candidatesGrid"><div class="card" id="card-0">
+      <div class="card-slot-badge">候補 1</div>
+      <div class="card-crest">？</div>
+      <div class="card-univ">---</div>
+      <div class="card-faculty">---</div>
+      <div class="card-deviation">偏差値 --</div>
+      <div class="card-meta">区分: --</div>
+      <button class="select-btn" disabled="">指名選択</button>
+    </div><div class="card" id="card-1">
+      <div class="card-slot-badge">候補 2</div>
+      <div class="card-crest">？</div>
+      <div class="card-univ">---</div>
+      <div class="card-faculty">---</div>
+      <div class="card-deviation">偏差値 --</div>
+      <div class="card-meta">区分: --</div>
+      <button class="select-btn" disabled="">指名選択</button>
+    </div><div class="card" id="card-2">
+      <div class="card-slot-badge">候補 3</div>
+      <div class="card-crest">？</div>
+      <div class="card-univ">---</div>
+      <div class="card-faculty">---</div>
+      <div class="card-deviation">偏差値 --</div>
+      <div class="card-meta">区分: --</div>
+      <button class="select-btn" disabled="">指名選択</button>
+    </div><div class="card" id="card-3">
+      <div class="card-slot-badge">候補 4</div>
+      <div class="card-crest">？</div>
+      <div class="card-univ">---</div>
+      <div class="card-faculty">---</div>
+      <div class="card-deviation">偏差値 --</div>
+      <div class="card-meta">区分: --</div>
+      <button class="select-btn" disabled="">指名選択</button>
+    </div><div class="card" id="card-4">
+      <div class="card-slot-badge">候補 5</div>
+      <div class="card-crest">？</div>
+      <div class="card-univ">---</div>
+      <div class="card-faculty">---</div>
+      <div class="card-deviation">偏差値 --</div>
+      <div class="card-meta">区分: --</div>
+      <button class="select-btn" disabled="">指名選択</button>
+    </div><div class="card" id="card-5">
+      <div class="card-slot-badge">候補 6</div>
+      <div class="card-crest">？</div>
+      <div class="card-univ">---</div>
+      <div class="card-faculty">---</div>
+      <div class="card-deviation">偏差値 --</div>
+      <div class="card-meta">区分: --</div>
+      <button class="select-btn" disabled="">指名選択</button>
+    </div></div>
+    </div>
+  </div>
+
+  <!-- 右側：オーダー表（1〜8番＋投手） -->
+  <div class="lineup-section">
+    <div class="lineup-header">
+      <div class="lineup-title">⚾ チームオーダー表</div>
+      <div class="avg-dev" id="avgDev">平均偏差値: --</div>
+    </div>
+    <div id="rosterList" style="display: flex; flex-direction: column; gap: 8px;"><div class="slot">
+        <div class="slot-num">1</div>
+        <div class="slot-info">
+          <div class="slot-univ slot-empty">1番打者</div>
+          <div class="slot-faculty">未指名</div>
+        </div>
+      </div><div class="slot">
+        <div class="slot-num">2</div>
+        <div class="slot-info">
+          <div class="slot-univ slot-empty">2番打者</div>
+          <div class="slot-faculty">未指名</div>
+        </div>
+      </div><div class="slot">
+        <div class="slot-num">3</div>
+        <div class="slot-info">
+          <div class="slot-univ slot-empty">3番打者</div>
+          <div class="slot-faculty">未指名</div>
+        </div>
+      </div><div class="slot">
+        <div class="slot-num">4</div>
+        <div class="slot-info">
+          <div class="slot-univ slot-empty">4番打者</div>
+          <div class="slot-faculty">未指名</div>
+        </div>
+      </div><div class="slot">
+        <div class="slot-num">5</div>
+        <div class="slot-info">
+          <div class="slot-univ slot-empty">5番打者</div>
+          <div class="slot-faculty">未指名</div>
+        </div>
+      </div><div class="slot">
+        <div class="slot-num">6</div>
+        <div class="slot-info">
+          <div class="slot-univ slot-empty">6番打者</div>
+          <div class="slot-faculty">未指名</div>
+        </div>
+      </div><div class="slot">
+        <div class="slot-num">7</div>
+        <div class="slot-info">
+          <div class="slot-univ slot-empty">7番打者</div>
+          <div class="slot-faculty">未指名</div>
+        </div>
+      </div><div class="slot">
+        <div class="slot-num">8</div>
+        <div class="slot-info">
+          <div class="slot-univ slot-empty">8番打者</div>
+          <div class="slot-faculty">未指名</div>
+        </div>
+      </div><div class="slot">
+        <div class="slot-num">9</div>
+        <div class="slot-info">
+          <div class="slot-univ slot-empty">9番打者</div>
+          <div class="slot-faculty">未指名</div>
+        </div>
+      </div></div>
+  </div>
+</div>
+
+<!-- 打順＆守備位置選択モーダル -->
+<div class="modal-overlay" id="posModal">
+  <div class="modal">
+    <h3 id="modalTitle">指名配置設定</h3>
+    
+    <div class="form-group">
+      <label>① 打順を選択</label>
+      <select class="form-select" id="orderSelect">
+        <!-- 動的生成 -->
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>② 守備位置を選択</label>
+      <select class="form-select" id="posSelect">
+        <!-- 動的生成 -->
+      </select>
+    </div>
+
+    <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="confirmAssignment()">この配置で確定する</button>
+    <button class="cancel-btn" onclick="closeModal()">キャンセル</button>
+  </div>
+</div>
+
+<script>
+// 広大な偏差値帯（超難関72.5〜FランBF）を網羅する実在大学データベース
+const UNIVERSITIES = [
+  // 【超最高峰・最難関 (偏差値 67.5〜72.5)】
+  { name: "東京大学", type: "国立", crest: "東", faculties: [{name:"理科三類(医)", dev:72.5}, {name:"文科一類(法)", dev:70.0}, {name:"理科一類", dev:67.5}, {name:"文科三類", dev:67.5}] },
+  { name: "京都大学", type: "国立", crest: "京", faculties: [{name:"医学部", dev:72.5}, {name:"法学部", dev:67.5}, {name:"工学部", dev:65.0}, {name:"農学部", dev:65.0}] },
+  { name: "慶應義塾大学", type: "私立", crest: "慶", faculties: [{name:"医学部", dev:72.5}, {name:"法学部", dev:70.0}, {name:"経済学部", dev:67.5}, {name:"環境情報(SFC)", dev:65.0}] },
+  { name: "早稲田大学", type: "私立", crest: "早", faculties: [{name:"政治経済学部", dev:70.0}, {name:"法学部", dev:67.5}, {name:"商学部", dev:67.5}, {name:"先進理工学部", dev:65.0}] },
+  { name: "東京科学大学", type: "国立", crest: "科", faculties: [{name:"医学部", dev:70.0}, {name:"歯学部", dev:62.5}, {name:"工学院", dev:65.0}] },
+  { name: "大阪大学", type: "国立", crest: "阪", faculties: [{name:"医学部", dev:70.0}, {name:"法学部", dev:65.0}, {name:"工学部", dev:62.5}] },
+  { name: "一橋大学", type: "国立", crest: "一", faculties: [{name:"商学部", dev:67.5}, {name:"経済学部", dev:67.5}, {name:"法学部", dev:67.5}] },
+
+  // 【難関国公立・GMARCH・関関同立 (偏差値 57.5〜65.0)】
+  { name: "東北大学", type: "国立", crest: "北", faculties: [{name:"医学部", dev:67.5}, {name:"工学部", dev:60.0}, {name:"文学部", dev:60.0}] },
+  { name: "名古屋大学", type: "国立", crest: "名", faculties: [{name:"医学部", dev:67.5}, {name:"情報学部", dev:60.0}, {name:"経済学部", dev:60.0}] },
+  { name: "神戸大学", type: "国立", crest: "神", faculties: [{name:"経営学部", dev:65.0}, {name:"医学部", dev:67.5}, {name:"工学部", dev:60.0}] },
+  { name: "明治大学", type: "私立", crest: "明", faculties: [{name:"商学部", dev:65.0}, {name:"政治経済学部", dev:65.0}, {name:"理工学部", dev:57.5}] },
+  { name: "青山学院大学", type: "私立", crest: "青", faculties: [{name:"国際政治経済", dev:65.0}, {name:"文学部", dev:62.5}, {name:"理工学部", dev:55.0}] },
+  { name: "立教大学", type: "私立", crest: "立", faculties: [{name:"異文化コミ", dev:67.5}, {name:"社会学部", dev:62.5}, {name:"理学部", dev:55.0}] },
+  { name: "中央大学", type: "私立", crest: "中", faculties: [{name:"法学部", dev:65.0}, {name:"商学部", dev:60.0}, {name:"理工学部", dev:55.0}] },
+  { name: "同志社大学", type: "私立", crest: "同", faculties: [{name:"法学部", dev:62.5}, {name:"心理学部", dev:62.5}, {name:"理工学部", dev:57.5}] },
+  { name: "立命館大学", type: "私立", crest: "命", faculties: [{name:"国際関係学部", dev:62.5}, {name:"情報理工学部", dev:55.0}] },
+
+  // 【中堅私立・地方国公立・日東駒専・産近甲龍 (偏差値 47.5〜55.0)】
+  { name: "日本大学", type: "私立", crest: "日", faculties: [{name:"医学部", dev:67.5}, {name:"芸術学部(日芸)", dev:52.5}, {name:"理工学部", dev:50.0}, {name:"法学部", dev:52.5}] },
+  { name: "東洋大学", type: "私立", crest: "東", faculties: [{name:"国際観光学部", dev:55.0}, {name:"文学部", dev:55.0}, {name:"福祉社会デザイン", dev:47.5}] },
+  { name: "駒澤大学", type: "私立", crest: "駒", faculties: [{name:"経済学部", dev:52.5}, {name:"仏教学部", dev:47.5}] },
+  { name: "専修大学", type: "私立", crest: "専", faculties: [{name:"商学部", dev:52.5}, {name:"経営学部", dev:50.0}] },
+  { name: "近畿大学", type: "私立", crest: "近", faculties: [{name:"農学部(マグロ)", dev:52.5}, {name:"情報学部", dev:55.0}, {name:"経済学部", dev:50.0}] },
+  { name: "京都産業大学", type: "私立", crest: "産", faculties: [{name:"理学部", dev:47.5}, {name:"現代社会学部", dev:47.5}] },
+  { name: "龍谷大学", type: "私立", crest: "龍", faculties: [{name:"農学部", dev:47.5}, {name:"文学部", dev:50.0}] },
+  { name: "甲南大学", type: "私立", crest: "甲", faculties: [{name:"フロンティアサイエンス", dev:47.5}, {name:"経済学部", dev:50.0}] },
+
+  // 【大東亜帝国・摂神追桃・地方私立 (偏差値 40.0〜45.0)】
+  { name: "大東文化大学", type: "私立", crest: "大", faculties: [{name:"スポーツ健康科学", dev:45.0}, {name:"文学部", dev:42.5}, {name:"外国語学部", dev:40.0}] },
+  { name: "東海大学", type: "私立", crest: "海", faculties: [{name:"海洋学部", dev:42.5}, {name:"観光学部", dev:42.5}, {name:"工学部", dev:40.0}] },
+  { name: "亜細亜大学", type: "私立", crest: "亜", faculties: [{name:"経営学部", dev:45.0}, {name:"都市創造学部", dev:42.5}] },
+  { name: "帝京大学", type: "私立", crest: "帝", faculties: [{name:"薬学部", dev:50.0}, {name:"経済学部", dev:42.5}, {name:"理工学部", dev:40.0}] },
+  { name: "国士舘大学", type: "私立", crest: "国", faculties: [{name:"体育学部", dev:47.5}, {name:"政経学部", dev:45.0}, {name:"理工学部", dev:42.5}] },
+  { name: "摂南大学", type: "私立", crest: "摂", faculties: [{name:"薬学部", dev:50.0}, {name:"理工学部", dev:42.5}, {name:"現代社会学部", dev:40.0}] },
+  { name: "神戸学院大学", type: "私立", crest: "神", faculties: [{name:"薬学部", dev:47.5}, {name:"法学部", dev:42.5}, {name:"栄養学部", dev:42.5}] },
+  { name: "追手門学院大学", type: "私立", crest: "追", faculties: [{name:"心理学部", dev:45.0}, {name:"地域創造学部", dev:42.5}] },
+  { name: "桃山学院大学", type: "私立", crest: "桃", faculties: [{name:"ビジネスデザイン", dev:42.5}, {name:"社会学部", dev:40.0}] },
+
+  // 【Fラン・ボーダーフリー / 入学難易度容易ゾーン (偏差値 35.0〜BF=30.0換算)】
+  { name: "羽衣国際大学", type: "私立", crest: "羽", faculties: [{name:"現代社会学部", dev:35.0}, {name:"人間生活学部", dev:30.0}] },
+  { name: "芦屋大学", type: "私立", crest: "芦", faculties: [{name:"臨床教育学部", dev:30.0}] },
+  { name: "姫路獨協大学", type: "私立", crest: "姫", faculties: [{name:"医療保健学部", dev:35.0}, {name:"看護学部", dev:35.0}] },
+  { name: "第一工科大学", type: "私立", crest: "一", faculties: [{name:"工学部", dev:30.0}] },
+  { name: "日本橋学館大学(開智国際)", type: "私立", crest: "開", faculties: [{name:"国際教養学部", dev:35.0}] },
+  { name: "静岡産業大学", type: "私立", crest: "静", faculties: [{name:"経営学部", dev:35.0}, {name:"スポーツ科学部", dev:35.0}] },
+  { name: "愛知産業大学", type: "私立", crest: "愛", faculties: [{name:"造形学部", dev:30.0}, {name:"経営学部", dev:30.0}] },
+  { name: "平成国際大学", type: "私立", crest: "平", faculties: [{name:"法学部", dev:35.0}, {name:"スポーツ健康", dev:35.0}] },
+  { name: "つくば国際大学", type: "私立", crest: "筑", faculties: [{name:"医療保健学部", dev:35.0}] },
+  { name: "太田情報商科専門職大学", type: "私立", crest: "太", faculties: [{name:"情報学部", dev:30.0}] },
+  { name: "稚内北星学園大学(育英館)", type: "私立", crest: "稚", faculties: [{name:"情報メディア学部", dev:30.0}] }
+];
+
+// 守備位置リスト
+const POSITIONS = ["投手", "捕手", "一塁手", "二塁手", "三塁手", "遊撃手", "左外野手", "中外野手", "右外野手", "指名打者(DH)"];
+
+// ランク＆称号定義テーブル
+const RANK_TABLE = [
+  { min: 68.0, rank: "S1", title: "最難関大レベル", desc: "圧倒的頭脳！全国トップレベルの知性を誇る超エリート軍団。" },
+  { min: 65.0, rank: "S2", title: "難関大レベル", desc: "名門・超難関校が並ぶ、社会を牽引するトップクラス打線。" },
+  { min: 62.5, rank: "S3", title: "難関大可能レベル", desc: "旧帝大・早慶上理級がズラリと揃う超有力チーム。" },
+  { min: 60.0, rank: "A1", title: "難関大可能レベル", desc: "高い学力と実力を兼ね備えたハイレベルな編成。" },
+  { min: 57.5, rank: "A2", title: "国公立大・中堅私立大レベル", desc: "GMARCH・上位国公立クラスが中心の隙のない実力派。" },
+  { min: 55.0, rank: "A3", title: "国公立大・中堅私立大レベル", desc: "安定感抜群！バランスの取れた優良打線。" },
+  { min: 52.5, rank: "B1", title: "国公立大・中堅私立大可能レベル", desc: "日東駒専・地方国公立主体の堅実なチーム。" },
+  { min: 50.0, rank: "B2", title: "国公立大・中堅私立大可能レベル", desc: "平均以上の知力を有する、穴のないオーダー。" },
+  { min: 47.5, rank: "B3", title: "国公立大・中堅私立大可能レベル", desc: "中堅大学を中心に構成されたまとまりのあるチーム。" },
+  { min: 45.0, rank: "C1", title: "4年制大可能レベル", desc: "大東亜帝国・産近甲龍クラスが並ぶ実戦的オーダー。" },
+  { min: 42.5, rank: "C2", title: "4年制大可能レベル", desc: "個性あふれる大学が勢ぞろいしたユニーク打線。" },
+  { min: 40.0, rank: "C3", title: "実力養成レベル", desc: "ここからが踏ん張りどころ！伸びしろ秘めるチーム。" },
+  { min: 37.5, rank: "D1", title: "基礎力養成レベル", desc: "バラエティ豊かなFラン・中堅混合チーム。" },
+  { min: 35.0, rank: "D2", title: "基礎力養成レベル", desc: "ユニークな個性が光る個性派集団。" },
+  { min: 0.0,  rank: "D3", title: "基礎・基本養成レベル", desc: "伝説の全枠Fラン/BF達成！？唯一無二のネタ打線！" }
+];
+
+// ゲーム状態
+let passRemaining = 5;
+let currentCandidates = [];
+let isSpinning = false;
+let selectedCandidateIndex = null;
+
+// オーダー枠（9枠）
+let roster = Array.from({ length: 9 }, (_, i) => ({
+  order: i + 1,
+  position: null,
+  data: null
+}));
+
+function init() {
+  renderRoster();
+  renderInitialPlaceholders();
+  updatePassUI();
+}
+
+// 初期候補プレースホルダー
+function renderInitialPlaceholders() {
+  const grid = document.getElementById("candidatesGrid");
+  grid.innerHTML = "";
+  for (let i = 0; i < 6; i++) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.id = `card-${i}`;
+    card.innerHTML = `
+      <div class="card-slot-badge">候補 ${i + 1}</div>
+      <div class="card-crest">？</div>
+      <div class="card-univ">---</div>
+      <div class="card-faculty">---</div>
+      <div class="card-deviation">偏差値 --</div>
+      <div class="card-meta">区分: --</div>
+      <button class="select-btn" disabled>指名選択</button>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+// 6つ同時にルーレット回転
+function startRoulette() {
+  if (isSpinning) return;
+  isSpinning = true;
+
+  document.getElementById("spinBtn").disabled = true;
+  document.getElementById("passBtn").disabled = true;
+
+  for (let i = 0; i < 6; i++) {
+    const card = document.getElementById(`card-${i}`);
+    if (card) card.classList.add("spinning");
+  }
+
+  let step = 0;
+  const maxSteps = 18;
+
+  const timer = setInterval(() => {
+    for (let i = 0; i < 6; i++) {
+      const u = UNIVERSITIES[Math.floor(Math.random() * UNIVERSITIES.length)];
+      const f = u.faculties[Math.floor(Math.random() * u.faculties.length)];
+      updateCardUI(i, { univ: u.name, crest: u.crest, faculty: f.name, dev: f.dev, type: u.type }, false);
+    }
+
+    step++;
+    if (step >= maxSteps) {
+      clearInterval(timer);
+      finalizeCandidates();
+    }
+  }, 70);
+}
+
+// 候補確定
+function finalizeCandidates() {
+  currentCandidates = [];
+  for (let i = 0; i < 6; i++) {
+    const u = UNIVERSITIES[Math.floor(Math.random() * UNIVERSITIES.length)];
+    const f = u.faculties[Math.floor(Math.random() * u.faculties.length)];
+    const cand = {
+      id: i,
+      univ: u.name,
+      crest: u.crest,
+      faculty: f.name,
+      dev: f.dev,
+      type: u.type
+    };
+    currentCandidates.push(cand);
+    updateCardUI(i, cand, true);
+
+    const card = document.getElementById(`card-${i}`);
+    if (card) card.classList.remove("spinning");
+  }
+
+  isSpinning = false;
+  document.getElementById("spinBtn").disabled = false;
+  if (passRemaining > 0) {
+    document.getElementById("passBtn").disabled = false;
+  }
+}
+
+// カード1枚のDOM描画
+function updateCardUI(index, item, enableButton) {
+  const card = document.getElementById(`card-${index}`);
+  if (!card) return;
+
+  card.querySelector(".card-crest").innerText = item.crest;
+  card.querySelector(".card-univ").innerText = item.univ;
+  card.querySelector(".card-faculty").innerText = item.faculty;
+  
+  const devEl = card.querySelector(".card-deviation");
+  const devText = item.dev <= 35 ? (item.dev === 30 ? "BF(30.0)" : `${item.dev}`) : `${item.dev}`;
+  devEl.innerText = `偏差値 ${devText}`;
+  if (item.dev <= 40) {
+    devEl.classList.add("low-dev");
+  } else {
+    devEl.classList.remove("low-dev");
+  }
+
+  card.querySelector(".card-meta").innerText = `区分: ${item.type}`;
+
+  const btn = card.querySelector(".select-btn");
+  if (enableButton) {
+    btn.disabled = false;
+    btn.onclick = () => openModal(index);
+  } else {
+    btn.disabled = true;
+    btn.onclick = null;
+  }
+}
+
+// パス処理
+function passTurn() {
+  if (passRemaining <= 0 || isSpinning) return;
+  passRemaining--;
+  updatePassUI();
+  startRoulette();
+}
+
+function updatePassUI() {
+  document.getElementById("passBadge").innerText = `${passRemaining}/5`;
+  document.getElementById("passLeftText").innerText = passRemaining;
+  if (passRemaining <= 0) {
+    document.getElementById("passBtn").disabled = true;
+  }
+}
+
+// 打順＆守備位置選択モーダルを開く
+function openModal(candidateIndex) {
+  selectedCandidateIndex = candidateIndex;
+  const item = currentCandidates[candidateIndex];
+  document.getElementById("modalTitle").innerText = `${item.univ} ${item.faculty}`;
+
+  // 打順セレクト
+  const orderSel = document.getElementById("orderSelect");
+  orderSel.innerHTML = "";
+  roster.forEach((slot, idx) => {
+    const opt = document.createElement("option");
+    opt.value = idx;
+    opt.disabled = slot.data !== null;
+    opt.innerText = `${slot.order}番 ${slot.data ? `[指名済: ${slot.data.univ}]` : '[空き]'}`;
+    orderSel.appendChild(opt);
+  });
+
+  // 守備位置セレクト
+  const posSel = document.getElementById("posSelect");
+  posSel.innerHTML = "";
+  const usedPositions = roster.map(s => s.position).filter(p => p !== null);
+  POSITIONS.forEach(pos => {
+    const opt = document.createElement("option");
+    opt.value = pos;
+    opt.disabled = usedPositions.includes(pos);
+    opt.innerText = `${pos} ${usedPositions.includes(pos) ? '[配置済]' : ''}`;
+    posSel.appendChild(opt);
+  });
+
+  document.getElementById("posModal").classList.add("active");
+}
+
+function closeModal() {
+  document.getElementById("posModal").classList.remove("active");
+}
+
+// 指名確定処理
+function confirmAssignment() {
+  if (selectedCandidateIndex === null) return;
+  const candidate = currentCandidates[selectedCandidateIndex];
+  
+  const orderIdx = parseInt(document.getElementById("orderSelect").value);
+  const pos = document.getElementById("posSelect").value;
+
+  roster[orderIdx].data = candidate;
+  roster[orderIdx].position = pos;
+
+  renderRoster();
+  closeModal();
+
+  renderInitialPlaceholders();
+  document.getElementById("passBtn").disabled = true;
+
+  // コンプリート判定＆称号評価
+  if (roster.every(slot => slot.data !== null)) {
+    document.getElementById("spinBtn").disabled = true;
+    document.getElementById("passBtn").disabled = true;
+    evaluateTeamResult();
+  }
+}
+
+// チーム評価・称号授与
+function evaluateTeamResult() {
+  const totalDev = roster.reduce((sum, slot) => sum + slot.data.dev, 0);
+  const avgDev = totalDev / 9;
+
+  let matchedRank = RANK_TABLE[RANK_TABLE.length - 1];
+  for (let r of RANK_TABLE) {
+    if (avgDev >= r.min) {
+      matchedRank = r;
+      break;
+    }
+  }
+
+  const banner = document.getElementById("resultBanner");
+  document.getElementById("resRank").innerText = matchedRank.rank;
+  document.getElementById("resTitle").innerText = matchedRank.title;
+  document.getElementById("resDesc").innerText = `平均偏差値: ${avgDev.toFixed(1)}｜${matchedRank.desc}`;
+  banner.style.display = "block";
+}
+
+// オーダー表描画
+function renderRoster() {
+  const container = document.getElementById("rosterList");
+  container.innerHTML = "";
+  let totalDev = 0;
+  let count = 0;
+
+  roster.forEach((slot) => {
+    const div = document.createElement("div");
+    div.className = "slot";
+
+    if (slot.data) {
+      totalDev += slot.data.dev;
+      count++;
+      const devText = slot.data.dev <= 35 ? (slot.data.dev === 30 ? "BF" : `${slot.data.dev}`) : `${slot.data.dev}`;
+      div.innerHTML = `
+        <div class="slot-num">${slot.order}</div>
+        <div class="slot-info">
+          <div class="slot-univ">${slot.data.univ}</div>
+          <div class="slot-faculty">${slot.data.faculty}</div>
+          <span class="slot-pos-badge">${slot.position}</span>
+        </div>
+        <div class="slot-dev ${slot.data.dev <= 40 ? 'low-dev' : ''}">偏差値 ${devText}</div>
+      `;
+    } else {
+      div.innerHTML = `
+        <div class="slot-num">${slot.order}</div>
+        <div class="slot-info">
+          <div class="slot-univ slot-empty">${slot.order}番打者</div>
+          <div class="slot-faculty">未指名</div>
+        </div>
+      `;
+    }
+    container.appendChild(div);
+  });
+
+  const avgDevEl = document.getElementById("avgDev");
+  if (count > 0) {
+    avgDevEl.innerText = `平均偏差値: ${(totalDev / count).toFixed(1)}`;
+  } else {
+    avgDevEl.innerText = `平均偏差値: --`;
+  }
+}
+
+init();
+</script>
+
+</body></html>
